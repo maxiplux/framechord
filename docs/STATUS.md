@@ -4,7 +4,7 @@ FrameChord is the project name from 0.6.1 onward. Earlier evidence below keeps i
 
 Development snapshot, October 15, 2026. The first-version command families are implemented within the provider boundaries below. Visual character consistency has failed user acceptance and must not be described as complete. Native validation is separate from media-quality acceptance; public binary availability is recorded on the [Releases page](https://github.com/maxiplux/agentmedia/releases/latest).
 
-Implemented: Rust package/library/CLI, versioned contracts and schemas, offline preserving initialization, embedded skills/templates and explicit bundled-file refresh, portable character import/export and reference acceptance, direct/job/batch validation and explicit job overrides, infographic compilation, text planning with contained validated authoring bundles, concurrent durable runs, dependencies, finite limits, verified cache, submission idempotency, worker startup/loss handling, cancellation/resume, native audio assembly, review records, durable image AI review receipts/reuse/retry history, ElevenLabs descriptive voice previews and explicit saved-voice creation/binding/verification refresh, child revisions, targeted podcast revisions, consent-gated recorded-voice cloning, portable exact-transcript voice samples, Fish binary reference synthesis, Google audio AI review/retrieval, Google generation reconciliation, bounded paginated/filterable voice discovery, a terminal configuration wizard, and explicit user host concurrency controls. Reference media is decoded before acceptance or generation. Failed cached publication preserves independent jobs.
+Implemented: Rust package/library/CLI, versioned contracts and schemas, offline preserving initialization, embedded skills/templates and explicit bundled-file refresh, portable character import/export and reference acceptance, direct/job/batch validation and explicit job overrides, infographic compilation, text planning with contained validated authoring bundles, concurrent durable runs, dependencies, finite limits, verified cache, submission idempotency, worker startup/loss handling, cancellation/resume, native audio assembly, review records, durable image AI review receipts/reuse/retry history, ElevenLabs descriptive voice previews and explicit saved-voice creation/binding/verification refresh, child revisions, targeted podcast revisions, audiobooks by chapter or full book (manuscript splitting, WAV/MP3 with ID3 chapters, chapter index and cue sheet, whole-book budget preflight, chapter subsets and chapter revisions), consent-gated recorded-voice cloning, portable exact-transcript voice samples, Fish binary reference synthesis, Google audio AI review/retrieval, Google generation reconciliation, bounded paginated/filterable voice discovery, a terminal configuration wizard, and explicit user host concurrency controls. Reference media is decoded before acceptance or generation. Failed cached publication preserves independent jobs.
 
 | Provider | Adapter paths implemented | Selected live verification |
 | --- | --- | --- |
@@ -295,7 +295,7 @@ documentation. The release evidence follows the local validation below.
 
 - `usage --json` now reports labelled list-price estimates beside provider-reported
   units: `cost_estimate`, `cost_status` (`estimated`, `provider_reported`,
-  `cached_no_charge`, `not_estimable`; operations and local podcast assembly jobs
+  `cached_no_charge`, `not_estimable`; operations and local podcast and audiobook assembly jobs
   `not_estimated`), `cost_note`,
   `estimated_total_usd` and an `estimate_summary`. Rates come from the bundled
   `assets/pricing.json`, verified against the official Google, OpenAI and ElevenLabs
@@ -392,3 +392,45 @@ integration guide link the new section and both files. The page was checked loca
 desktop and phone widths: copy buttons and search work, there is no horizontal scroll,
 and there are no console errors. Publication to framechord.com follows the normal
 `master` deployment.
+
+## Audiobooks
+
+October 19, 2026. A request for an audiobook previously produced a podcast, because
+the only long-form choices were single-text speech and multi-speaker podcasts, and the
+skill pointed article adaptations at podcasts. `media: audiobook` is now a separate
+job type: one narrator reads exact text from a Markdown manuscript split at `#`
+headings or from an explicit chapter list. It publishes one WAV or MP3 per chapter and,
+in `full` mode, the whole book with ID3 chapter frames, a `chapters.json` index and a
+`.cue` sheet. `validate` shows the chapter table and budget fit; a whole book is
+checked against the run limits before any run exists; `generate --chapter` produces a
+subset; `revise --chapter` re-reads one chapter and reassembles the book. Chapters and
+the book are assembled by streaming, off the scheduler thread. The skill now routes
+book and read-aloud requests to audiobooks and keeps podcasts for conversations, and
+`plan --source` copies a manuscript into the bundle without sending its words to the
+planner. Revising a long podcast turn now also directs every part of that turn; before,
+its cached parts were reused unchanged.
+
+MP3 uses LAME 3.100, statically linked under the LGPL (`framechord notices`,
+[packaging](PACKAGING.md#mp3-encoder-and-the-lgpl)); `--no-default-features` builds
+without it. Speech models without a recorded request limit (Google, Fish) are split
+at 4,000 characters per request. That value is a conservative choice inside Gemini 3.8
+Flash TTS's documented 8,192-token input limit, checked on 2026-10-19; Fish publishes
+no per-request character cap. Output is 24 kHz mono and is not an ACX/Audible delivery
+specification; WAV books are limited to about 24.8 hours.
+
+Offline: 15 new tests in `tests/audiobook.rs` plus splitter and chunker unit tests
+cover splitting rules, exact text, narrator enforcement, schema gates, unchanged
+fingerprints for existing jobs, the preflight, WAV and MP3 books with ID3 chapters
+read back, chapters mode, subsets reused by a later full run, partial failure and
+resume, chapter revision, streamed versus in-memory assembly, pricing, templates,
+planner source containment and the CLI. Native CI results for the LAME build on
+Windows, Linux and macOS are recorded with the pull request. One approved live run
+(two Google Gemini TTS requests) produced the guide's two-chapter sample with correct
+ID3 chapters; see [live evidence](LIVE_TESTS.md#audiobook-sample-october-19-2026).
+Narration quality has not been reviewed by a listener, and Fish, ElevenLabs and OpenAI
+audiobooks have only mocked coverage.
+
+The guide gains a `#audiobooks` section (now 21 sections), a playable two-chapter
+sample in the showcase, a thirteenth delegation prompt and a ninth scenario, and six
+example files (41 in total). `build-site.py --check` and its tests pass; the page was
+checked locally at desktop and phone widths with no console errors.

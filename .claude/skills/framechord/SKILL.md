@@ -1,6 +1,6 @@
 ---
 name: framechord
-description: Generate images, infographics, speech, podcasts, music, and sound effects with the framechord CLI, using optional reusable character identities and local YAML and Markdown briefs.
+description: Generate images, infographics, speech, podcasts, audiobooks (by chapter or as a full book), music, and sound effects with the framechord CLI, using optional reusable character identities and local YAML and Markdown briefs.
 ---
 
 # FrameChord
@@ -19,7 +19,9 @@ Read [voices](references/voices.md) when discovering voices, designing previews,
 
 Read [setup and current models](references/setup.md) for the looping terminal wizard, Google-first defaults and an explicit OpenAI alternative, preserving project .env setup, masked credentials and project skill installation, noninteractive setup readiness, model filters and explicit catalog refresh. For a single asset, use explicit current provider/model/input/output flags without initialization. For repeated work, agents use `init PATH --preset recommended --json --non-interactive`, inspect `config status --json`, and supply exact configuration with `config setup --file` where needed. Human terminal users run `init` to resume setup. No provider calls occur during initialization. Existing character model locks are preserved; retired-model identities need a new character version and human-accepted references before generating again.
 
-Preserve requested dialogue, lyrics, numbers, and labels exactly. Use a separate explicit planning operation when adapting an article into a podcast. Supply article text in a local file. Characters are optional; when selected, reuse their accepted references and pinned voice/provider/model. Derived identity assets must use the original asset’s recorded provider/model; conflicting overrides fail. Preserve origin metadata instead of copying the project default into derived job YAML. Describe stable identity separately from pose, scene, delivery, or temporary clothing. Candidate references need the user's selection before acceptance.
+Choose the media type from what the user asked for. An audiobook, a book or story read aloud, or long text narrated chapter by chapter is `media: audiobook`: one narrator, the exact source text, one file per chapter and optionally the full book (read [audiobooks](references/audiobooks.md)). A podcast is a conversation or multi-speaker show; never turn a book into a podcast unless the user asks for that adaptation. Short single-voice narration is `speech`.
+
+Preserve requested dialogue, lyrics, numbers, and labels exactly; audiobook text is never summarized, adapted or rewritten. Use a separate explicit planning operation when the user asks to adapt an article into a podcast. Supply article text in a local file. Characters are optional; when selected, reuse their accepted references and pinned voice/provider/model. Derived identity assets must use the original asset’s recorded provider/model; conflicting overrides fail. Preserve origin metadata instead of copying the project default into derived job YAML. Describe stable identity separately from pose, scene, delivery, or temporary clothing. Candidate references need the user's selection before acceptance.
 
 Author files using templates, then `validate`. Inspect `generate --job ... --dry-run --json` before execution when inputs are new. Call generation only when it is part of the user's request. Use `--json --non-interactive` for automation. Report artifact paths returned by the binary and incomplete jobs honestly.
 

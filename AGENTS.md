@@ -2,7 +2,7 @@
 
 ## Purpose and current state
 
-Build a local Rust CLI that lets any agent with process access, including Codex and Claude Code, and terminal users generate images, infographics, speech, podcasts, music, and sound effects through reusable skills. Characters are optional; when needed, define visual and voice identity once and reuse it across jobs and projects.
+Build a local Rust CLI that lets any agent with process access, including Codex and Claude Code, and terminal users generate images, infographics, speech, podcasts, audiobooks, music, and sound effects through reusable skills. Characters are optional; when needed, define visual and voice identity once and reuse it across jobs and projects.
 
 The intended package, binary, and skill name is `framechord`. The initialized configuration directory is the visible `framechord/` folder, without a leading dot. Existing `mediaagent/` projects remain supported in place to preserve paths, receipts and reference hashes; do not move or rewrite their content as part of branding. Refuse ambiguous roots containing both directories.
 

@@ -77,7 +77,7 @@ Missing optional origin fields preserve compatibility with old manifests.
 
 `usage` is a read-only report. Each job row keeps `provider_reported_usage` raw and adds
 `cost_estimate`, `cost_status` (`estimated`, `provider_reported`, `cached_no_charge`,
-`not_estimable`; operations and local podcast assembly jobs are `not_estimated`) and `cost_note`. Estimates come from the
+`not_estimable`; operations and local podcast and audiobook assembly jobs are `not_estimated`) and `cost_note`. Estimates come from the
 dated bundled price table (`assets/pricing.json`, or an explicit validated `--price-table`),
 are computed from recorded artifact dimensions/durations, script characters or returned
 token counts, never replace a provider-returned `cost`, and are summed only into
@@ -88,3 +88,42 @@ default; `--live` explicitly checks the selected providers, returns all per-prov
 statuses with safe actions, and exits 3 when any selected check fails. It creates no
 generation records and does not infer media endpoint/model/billing readiness. See
 [connection checks](CONNECTIONS.md) for the exact endpoints and response fields.
+
+## Audiobooks
+
+`media: audiobook` requires job `schema_version: 2`. It takes exactly one text
+source: `manuscript` (one Markdown file, optionally with `split: {heading_level,
+empty_chapters, preamble}`) or `chapters` (ordered `{id, title, text_file, brief,
+settings}` entries). `text_file`, `turns`, `cast`, `spec`, `references`, `output`,
+`settings.format` and `assembly.turn_gain_db` are rejected. Packaging is in
+`audiobook: {output_mode: chapters|full, format: wav|mp3, mp3_bitrate_kbps,
+announce_titles, max_chars_per_request, title, author}`; `assembly.pause_ms` is the
+gap between chapters and `assembly.loudness_lufs` is applied to each chapter.
+
+Splitting reads only ATX `#` headings outside fenced code; YAML front matter is
+excluded, a leading byte-order mark is dropped, heading lines are never narrated and
+chapter bodies are exact slices of the source. The narrator is the job `character`,
+an explicit `selection`, `defaults.audiobook` or `defaults.speech`, recorded as
+`selection_source`; every chapter must resolve to the same selection, character hash,
+voice, locale and references.
+
+The resolved effective input is a book (`media: audiobook`) whose turns are chapters
+(`media: speech`, `audiobook.role: chapter`), whose turns are provider parts. Parts are
+plain speech requests, paragraph-aligned and at most `min(max_chars_per_request or
+4000, model limit)` characters; their fingerprints exclude packaging, so changing the
+format, mode or pause reuses every cached part. Chapters and the book are assembled
+locally, never cached and never sent to a provider. A run selected with `generate
+--chapter` contains no book job. Before a run is created, the whole audiobook is
+checked against `requests`, `speech_chars` and `audio_seconds`, counting only parts
+without a verified cached result plus budget already used by the group; a book that
+does not fit exits 6 with no run.
+
+With `--output-dir DIR`, files are published to `DIR/<book>/`: `chapter-NN-<id>.<ext>`
+per chapter, and in `full` mode `<book>.<ext>`, `<book>.chapters.json` (the `chapters`
+schema) and `<book>.cue` (omitted above 99 chapters). MP3 is constant bitrate at 24 kHz
+mono with an ID3v2.3 tag; the full book carries one `CHAP` frame per chapter and an
+ordered top-level `CTOC`. WAV output is limited to about 24.8 hours. Result JSON adds
+an `audiobook` summary with chapter states, paths, durations, cached parts, missing
+chapters and the next step; long narration strings in result views are replaced by
+their character count and hash. `revise --chapter ID` adds direction to that chapter
+and every part beneath it.

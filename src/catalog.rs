@@ -39,7 +39,7 @@ pub fn models() -> Vec<Model> {
 pub fn target(media: Media) -> Media {
     match media {
         Media::Infographic => Media::Image,
-        Media::Podcast => Media::Speech,
+        Media::Podcast | Media::Audiobook => Media::Speech,
         other => other,
     }
 }

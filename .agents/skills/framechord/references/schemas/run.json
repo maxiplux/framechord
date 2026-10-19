@@ -135,6 +135,125 @@
       ],
       "type": "object"
     },
+    "AudioFormat": {
+      "description": "Published audio container for audiobook chapters and the full book.",
+      "enum": [
+        "wav",
+        "mp3"
+      ],
+      "type": "string"
+    },
+    "AudiobookPlan": {
+      "additionalProperties": false,
+      "description": "Resolved audiobook packaging carried by book and chapter jobs, never by provider leaves.",
+      "properties": {
+        "author": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chapter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChapterInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "$ref": "#/$defs/AudioFormat"
+        },
+        "mp3_bitrate_kbps": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "output_mode": {
+          "$ref": "#/$defs/OutputMode"
+        },
+        "role": {
+          "$ref": "#/$defs/AudiobookRole"
+        },
+        "selected": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "output_mode",
+        "format",
+        "mp3_bitrate_kbps"
+      ],
+      "type": "object"
+    },
+    "AudiobookRole": {
+      "enum": [
+        "book",
+        "chapter"
+      ],
+      "type": "string"
+    },
+    "ChapterInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "chars": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "count": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "index": {
+          "description": "One-based position in the complete book, stable across chapter subsets.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "spoken_title": {
+          "type": "boolean"
+        },
+        "text_sha256": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "index",
+        "count",
+        "spoken_title",
+        "source",
+        "text_sha256",
+        "chars"
+      ],
+      "type": "object"
+    },
     "Effective": {
       "additionalProperties": false,
       "properties": {
@@ -142,6 +261,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/Assembly"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audiobook": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudiobookPlan"
             },
             {
               "type": "null"
@@ -342,9 +471,18 @@
         "infographic",
         "speech",
         "podcast",
+        "audiobook",
         "music",
         "sfx",
         "text"
+      ],
+      "type": "string"
+    },
+    "OutputMode": {
+      "description": "`chapters` publishes one file per chapter; `full` also publishes the combined book.",
+      "enum": [
+        "chapters",
+        "full"
       ],
       "type": "string"
     },

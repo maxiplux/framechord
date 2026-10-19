@@ -107,6 +107,34 @@ pub fn stage(content: &str, kind: &str, directory: &Path, config: &Config) -> Re
                 bind_infographic_inputs(&root, &path)?;
                 contained_infographic(&root, &path)?;
             }
+            let sources: Vec<PathBuf> = root
+                .join("_inputs/sources")
+                .read_dir()
+                .map(|entries| entries.filter_map(|e| e.ok().map(|e| e.path())).collect())
+                .unwrap_or_default();
+            let mut narrated = vec![];
+            if let Some(path) = &job.manuscript {
+                narrated.push(dependency(&root, base, path)?);
+            }
+            for chapter in &job.chapters {
+                narrated.push(dependency(&root, base, &chapter.text_file)?);
+                if let Some(path) = &chapter.brief {
+                    dependency(&root, base, path)?;
+                }
+            }
+            // With selected source texts, the narrated words must be those exact files.
+            if job.media == Media::Audiobook
+                && !sources.is_empty()
+                && narrated.iter().any(|p| {
+                    !sources
+                        .iter()
+                        .any(|s| std::fs::canonicalize(s).ok().as_ref() == Some(p))
+                })
+            {
+                return Err(Error::input(
+                    "Planned audiobook must narrate the selected _inputs/sources files exactly; the planner may not author book text",
+                ));
+            }
             for turn in &job.turns {
                 for sample in &turn.voice_samples {
                     contained_sample(&root, base, sample)?;
@@ -244,6 +272,59 @@ pub fn prepare_inputs(
     if !inventory.as_array().unwrap().is_empty() {
         save(&directory.join("_inputs/inventory.yaml"), &inventory)?;
     }
+    Ok(inventory)
+}
+/// Copy exact source texts (such as a manuscript) into `_inputs/sources`.
+/// The planner sees only paths, sizes and hashes, never the words themselves.
+pub fn prepare_sources(
+    directory: &Path,
+    inventory: serde_json::Value,
+    sources: &[PathBuf],
+) -> Result<serde_json::Value> {
+    if sources.is_empty() {
+        return Ok(inventory);
+    }
+    let mut items = inventory.as_array().cloned().unwrap_or_default();
+    for (i, source) in sources.iter().enumerate() {
+        let source = storage_path(source)?;
+        if !matches!(
+            source.extension().and_then(|e| e.to_str()),
+            Some("md" | "txt")
+        ) {
+            return Err(Error::input(
+                "Planning sources must be Markdown or text files",
+            ));
+        }
+        let bytes = std::fs::read(&source)?;
+        if bytes.len() > 16 * 1024 * 1024 {
+            return Err(Error::input("Planning sources must be at most 16 MiB"));
+        }
+        let words = String::from_utf8(bytes)
+            .map_err(|_| Error::input("Planning sources must be UTF-8 text"))?;
+        if words.trim().is_empty() {
+            return Err(Error::input("Planning source is empty"));
+        }
+        let relative = PathBuf::from("_inputs/sources").join(format!(
+            "{i}-{}",
+            source.file_name().unwrap().to_string_lossy()
+        ));
+        atomic(&directory.join(&relative), words.as_bytes(), false)?;
+        let headings: Vec<_> = words
+            .lines()
+            .filter(|l| l.starts_with('#'))
+            .take(200)
+            .map(str::to_owned)
+            .collect();
+        items.push(serde_json::json!({
+            "kind": "source",
+            "path": relative,
+            "sha256": crate::storage::hash(words.as_bytes()),
+            "chars": words.chars().count(),
+            "headings": headings,
+        }));
+    }
+    let inventory = serde_json::json!(items);
+    save(&directory.join("_inputs/inventory.yaml"), &inventory)?;
     Ok(inventory)
 }
 fn storage_path(path: &Path) -> Result<PathBuf> {

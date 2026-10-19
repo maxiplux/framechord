@@ -88,6 +88,11 @@ Do not put credentials, account details, or billing data in evidence.
 
 ## Local audio and storage
 
+Audiobook jobs (`media: audiobook`, schema v2) reuse `assembly.pause_ms` as the gap
+between chapters and `assembly.loudness_lufs` per chapter; `turn_gain_db` is rejected.
+Chapters and the full book are assembled locally by streaming, so memory stays bounded
+to one clip. See the audiobook skill reference.
+
 Podcast `assembly` optionally contains `pause_ms` (0–10000), `turn_gain_db` (known
 turn IDs, -24 to 24), and `loudness_lufs` (-36 to -10). Omission preserves legacy
 assembly. Output stays mono 24 kHz WAV; original clips are retained. Integrated

@@ -1,5 +1,7 @@
 pub mod assets;
 pub mod audio;
+pub mod audiobook;
+pub mod audiobook_assembly;
 pub mod blobs;
 pub mod catalog;
 pub mod cli;
@@ -9,6 +11,7 @@ pub mod distribution;
 pub mod engine;
 pub mod error;
 pub mod maintenance;
+pub mod manuscript;
 pub mod operations;
 pub mod planning;
 pub mod pricing;

@@ -1,0 +1,20 @@
+schema_version: 2
+id: lamp-counter
+media: audiobook
+selection: {provider: google, model: gemini-3.8-flash-tts}
+brief: audiobook-narration.md
+manuscript: audiobook-manuscript.md
+split: {heading_level: 1}
+settings: {voice: Charon}
+locale: en-US
+assembly:
+  pause_ms: 1500
+  loudness_lufs: -19
+audiobook:
+  output_mode: full
+  format: mp3
+  mp3_bitrate_kbps: 64
+  announce_titles: true
+  title: The Lamp Counter
+  author: FrameChord guide
+depends_on: []

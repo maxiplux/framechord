@@ -33,8 +33,16 @@ ebur128 = "0.1.10"
 dialoguer = { version = "0.12.0", features = ["fuzzy-select"] }
 self-replace = "1.5"
 semver = "1"
+mp3lame-encoder = { version = "0.2.5", optional = true }
+id3 = { version = "1.17.2", optional = true }
 
 [dev-dependencies]
 http-body-util = "0.1"
 assert_cmd = "2"
 portable-pty = "0.9.0"
+
+[features]
+default = ["mp3"]
+# Statically links LAME (LGPL); see assets/THIRD_PARTY_NOTICES.md. Build with
+# --no-default-features for a binary without the MP3 encoder.
+mp3 = ["dep:mp3lame-encoder", "dep:id3"]

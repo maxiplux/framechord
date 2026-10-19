@@ -125,6 +125,15 @@ pub fn submit(root: &Path, inputs: Vec<Effective>, limits: Limits, options: Subm
             }
         }
     }
+    // Whole-book budget check before any run directory exists or any request is made.
+    audiobook_preflight(
+        root,
+        &inputs,
+        &limits,
+        options.fresh,
+        options.budget_group.as_deref(),
+    )?
+    .check()?;
     let id = Uuid::new_v4().to_string();
     let path = run_path(root, &id)?;
     fs::create_dir_all(path.join("outputs"))?;
@@ -133,7 +142,17 @@ pub fn submit(root: &Path, inputs: Vec<Effective>, limits: Limits, options: Subm
         mut input: Effective,
         jobs: &mut Vec<JobRecord>,
         output_dir: Option<&Path>,
+        book_dir: Option<&Path>,
     ) -> Result<()> {
+        let own_dir = match (&input.audiobook, output_dir) {
+            (Some(plan), Some(dir)) if plan.role == AudiobookRole::Book => {
+                Some(absolute(dir)?.join(&input.id))
+            }
+            _ => None,
+        };
+        let book_dir = own_dir.as_deref().or(book_dir);
+        let in_book =
+            input.media == Media::Audiobook || input.audiobook.is_some() || book_dir.is_some();
         if !input.turns.is_empty() {
             let dependencies = input.depends_on.clone();
             for turn in &input.turns {
@@ -142,28 +161,40 @@ pub fn submit(root: &Path, inputs: Vec<Effective>, limits: Limits, options: Subm
                 crate::storage::id(&child.id)?;
                 child.depends_on = dependencies.clone();
                 input.depends_on.push(child.id.clone());
-                expand(child, jobs, output_dir)?;
+                expand(child, jobs, output_dir, book_dir)?;
             }
         }
-        if let Some(dir) = output_dir {
-            input.output = Some(absolute(dir)?.join(format!("{}.{}", input.id, format(&input))));
+        match (&input.audiobook, output_dir) {
+            (Some(_), Some(_)) => {
+                input.output = Some(audiobook_destination(&input, book_dir.unwrap()))
+            }
+            // Audiobook parts stay in the run; only chapters and the book are published.
+            (None, Some(_)) if in_book => {}
+            // Turn destinations follow the same output directory, while their originals remain in the run.
+            (None, Some(dir)) if input.id.contains("--") => {
+                input.output = Some(absolute(dir)?.join(format!("{}.wav", input.id)));
+            }
+            (None, Some(dir)) => {
+                input.output =
+                    Some(absolute(dir)?.join(format!("{}.{}", input.id, format(&input))));
+            }
+            _ => {}
         }
-        jobs.push(record(input)?);
+        // A chapter subset has no full-book job; complete chapters are reused later.
+        let subset = input
+            .audiobook
+            .as_ref()
+            .is_some_and(|p| p.role == AudiobookRole::Book && p.selected.is_some());
+        if !subset {
+            jobs.push(record(input)?);
+        }
         Ok(())
     }
     for input in inputs {
         if input.id.contains("--") {
             return Err(Error::input("Job IDs cannot contain reserved -- separator"));
         }
-        expand(input, &mut jobs, options.output_dir.as_deref())?;
-    }
-    // Turn destinations follow the same output directory, while their originals remain in the run.
-    for j in &mut jobs {
-        if j.input.id.contains("--")
-            && let Some(d) = &options.output_dir
-        {
-            j.input.output = Some(absolute(d)?.join(format!("{}.wav", j.input.id)));
-        }
+        expand(input, &mut jobs, options.output_dir.as_deref(), None)?;
     }
     let run = Run {
         schema_version: 2,
@@ -180,7 +211,10 @@ pub fn submit(root: &Path, inputs: Vec<Effective>, limits: Limits, options: Subm
     };
     validation::graph(&run.jobs.iter().map(|j| j.input.clone()).collect::<Vec<_>>())?;
     for job in &run.jobs {
-        if job.input.output.as_ref().is_some_and(|p| p.exists()) && !run.overwrite {
+        if (job.input.output.as_ref().is_some_and(|p| p.exists())
+            || sidecars(&job.input).iter().any(|p| p.exists()))
+            && !run.overwrite
+        {
             return Err(Error::input(
                 "Output already exists; use --overwrite explicitly",
             ));
@@ -191,6 +225,131 @@ pub fn submit(root: &Path, inputs: Vec<Effective>, limits: Limits, options: Subm
         crate::progress::save(&path, &j.input.id, crate::progress::Stage::Queued)?;
     }
     Ok(run)
+}
+/// Whole-audiobook budget estimate, computed before any run exists.
+pub struct Preflight {
+    pub report: Option<serde_json::Value>,
+    error: Option<Error>,
+}
+impl Preflight {
+    pub fn check(self) -> Result<Option<serde_json::Value>> {
+        match self.error {
+            Some(error) => Err(error),
+            None => Ok(self.report),
+        }
+    }
+}
+/// Count the provider requests an audiobook submission would make (cached parts
+/// excluded unless `fresh`) against the run limits, plus any budget already
+/// used by `budget_group`. Ordinary jobs keep per-request runtime enforcement.
+pub fn audiobook_preflight(
+    root: &Path,
+    inputs: &[Effective],
+    limits: &Limits,
+    fresh: bool,
+    budget_group: Option<&str>,
+) -> Result<Preflight> {
+    let books: Vec<_> = inputs
+        .iter()
+        .filter(|i| i.media == Media::Audiobook)
+        .collect();
+    if books.is_empty() {
+        return Ok(Preflight {
+            report: None,
+            error: None,
+        });
+    }
+    let mut succeeded = std::collections::BTreeSet::new();
+    let runs = crate::project::directory(root).join("runs");
+    if !fresh && runs.exists() {
+        for entry in fs::read_dir(&runs)? {
+            let file = entry?.path().join("run.yaml");
+            if !file.is_file() {
+                continue;
+            }
+            let meta = crate::blobs::read_metadata(&file)?;
+            for job in meta["jobs"].as_array().into_iter().flatten() {
+                if job["state"] == "succeeded"
+                    && let Some(f) = job["fingerprint"].as_str()
+                {
+                    succeeded.insert(f.to_owned());
+                }
+            }
+        }
+    }
+    let (mut requests, mut chars, mut seconds, mut reused) = (0u32, 0u32, 0u32, 0u32);
+    for part in books.iter().flat_map(|b| &b.turns).flat_map(|c| &c.turns) {
+        let fingerprint = validation::fingerprint(part)?;
+        if !fresh && succeeded.contains(&fingerprint) && cached(root, &fingerprint)?.is_some() {
+            reused += 1;
+            continue;
+        }
+        let n = part.text.as_deref().unwrap_or("").chars().count() as u32;
+        requests += 1;
+        chars = chars.saturating_add(n);
+        seconds = seconds.saturating_add(n.div_ceil(crate::audiobook::CHARS_PER_SECOND));
+    }
+    let used = match budget_group {
+        Some(group) if run_path(root, group)?.join("budget.yaml").exists() => {
+            yaml::<Budget>(&run_path(root, group)?.join("budget.yaml"))?
+        }
+        _ => Budget::default(),
+    };
+    let need = (
+        used.requests.saturating_add(requests),
+        used.speech_chars.saturating_add(chars),
+        used.audio_seconds.saturating_add(seconds),
+    );
+    let fits = need.0 <= limits.requests
+        && need.1 <= limits.speech_chars
+        && need.2 <= limits.audio_seconds;
+    let report = serde_json::json!({
+        "requests": requests,
+        "speech_chars": chars,
+        "estimated_audio_seconds": seconds,
+        "cached_requests": reused,
+        "already_used": used,
+        "limits": {"requests": limits.requests, "speech_chars": limits.speech_chars, "audio_seconds": limits.audio_seconds},
+        "fits": fits,
+    });
+    let error = (!fits).then(|| {
+        let mut raise = vec![];
+        if need.0 > limits.requests {
+            raise.push(format!("limits.requests to at least {}", need.0));
+        }
+        if need.1 > limits.speech_chars {
+            raise.push(format!("limits.speech_chars to at least {}", need.1));
+        }
+        if need.2 > limits.audio_seconds {
+            raise.push(format!("limits.audio_seconds to at least {}", need.2));
+        }
+        let names: Vec<_> = books.iter().map(|b| format!("`{}`", b.id)).collect();
+        let mut error = Error::limit(format!(
+            "Audiobook {} needs {requests} provider requests, {chars} speech characters and about {seconds} reserved audio seconds ({} characters per second estimate){}; this run allows requests {}, speech_chars {} and audio_seconds {}. No request was made. With the user's approval, raise {} in framechord/config.yaml (config setup --file) or pass --limits-file, or generate fewer chapters per run with --chapter. Failed attempts reserve again, so leave headroom for retries.",
+            names.join(", "),
+            crate::audiobook::CHARS_PER_SECOND,
+            if used.requests > 0 {
+                format!(" on top of {} requests already used by this budget group", used.requests)
+            } else {
+                String::new()
+            },
+            limits.requests,
+            limits.speech_chars,
+            limits.audio_seconds,
+            raise.join(", ")
+        ));
+        error.corrective_argv = vec![
+            "framechord".into(),
+            "config".into(),
+            "limits".into(),
+            "--json".into(),
+        ];
+        error
+    });
+    Ok(Preflight {
+        report: Some(report),
+        error,
+    })
 }
 fn record(input: Effective) -> Result<JobRecord> {
     let fingerprint = validation::fingerprint(&input)?;
@@ -208,10 +367,47 @@ fn record(input: Effective) -> Result<JobRecord> {
         duration_accounted: false,
     })
 }
+/// `chapter-NN-<id>.<ext>` for chapters; the book file or its chapter index for the book.
+fn audiobook_destination(input: &Effective, dir: &Path) -> PathBuf {
+    let plan = input.audiobook.as_ref().unwrap();
+    match &plan.chapter {
+        Some(info) => {
+            let width = info.count.to_string().len().max(2);
+            let id = input.id.rsplit("--").next().unwrap_or(&input.id);
+            dir.join(format!(
+                "chapter-{:0width$}-{id}.{}",
+                info.index,
+                plan.format.extension()
+            ))
+        }
+        None => dir.join(format!("{}.{}", input.id, format(input))),
+    }
+}
+/// Extra files a full-book job publishes beside its main output.
+fn sidecars(input: &Effective) -> Vec<PathBuf> {
+    match (&input.audiobook, &input.output) {
+        (Some(plan), Some(out))
+            if plan.role == AudiobookRole::Book && plan.output_mode == OutputMode::Full =>
+        {
+            vec![
+                out.with_file_name(format!("{}.chapters.json", input.id)),
+                out.with_file_name(format!("{}.cue", input.id)),
+            ]
+        }
+        _ => vec![],
+    }
+}
 fn format(input: &Effective) -> &str {
+    if let Some(plan) = &input.audiobook {
+        return if plan.role == AudiobookRole::Book && plan.output_mode == OutputMode::Chapters {
+            "chapters.json"
+        } else {
+            plan.format.extension()
+        };
+    }
     match input.media {
         Media::Image | Media::Infographic => "png",
-        Media::Speech | Media::Podcast => "wav",
+        Media::Speech | Media::Podcast | Media::Audiobook => "wav",
         Media::Music | Media::Sfx => "mp3",
         Media::Text => "md",
     }
@@ -334,7 +530,7 @@ fn try_slots(
 }
 
 fn verified(a: &Artifact) -> bool {
-    fs::read(&a.path).is_ok_and(|bytes| bytes.len() as u64 == a.bytes && hash(&bytes) == a.sha256)
+    hash_file(&a.path).is_ok_and(|(sha, bytes)| bytes == a.bytes && sha == a.sha256)
 }
 fn cached(root: &Path, fingerprint: &str) -> Result<Option<JobRecord>> {
     let runs = crate::project::directory(root).join("runs");
@@ -371,6 +567,15 @@ fn cached(root: &Path, fingerprint: &str) -> Result<Option<JobRecord>> {
     Ok(None)
 }
 pub fn integrity(bytes: &[u8], format: &str) -> Result<Option<f64>> {
+    if format == "json" || format == "cue" {
+        let text = std::str::from_utf8(bytes)
+            .map_err(|_| Error::new("invalid_text", "Sidecar is not UTF-8", 3))?;
+        if format == "json" {
+            serde_json::from_str::<serde_json::Value>(text)
+                .map_err(|_| Error::new("invalid_text", "Chapter index is not valid JSON", 3))?;
+        }
+        return Ok(None);
+    }
     if format == "md" {
         if bytes.is_empty() || std::str::from_utf8(bytes).is_err() {
             return Err(Error::new(
@@ -428,6 +633,35 @@ pub(crate) fn artifact(
         duration_seconds: integrity(bytes, fmt)?,
         width: dimensions.map(|d| d.0),
         height: dimensions.map(|d| d.1),
+    })
+}
+/// Artifact record for a file already in place, hashed and checked without loading it.
+pub(crate) fn artifact_file(
+    path: &Path,
+    job_id: &str,
+    fmt: &str,
+    parent: Option<String>,
+) -> Result<Artifact> {
+    let (sha256, bytes) = hash_file(path)?;
+    let duration_seconds = match fmt {
+        "json" | "cue" => {
+            integrity(&fs::read(path)?, fmt)?;
+            None
+        }
+        _ => Some(audio::probe(path)?),
+    };
+    Ok(Artifact {
+        id: Uuid::new_v4().to_string(),
+        job_id: job_id.into(),
+        path: absolute(path)?,
+        sha256,
+        bytes,
+        format: fmt.into(),
+        quality: Quality::Unchecked,
+        parent,
+        duration_seconds,
+        width: None,
+        height: None,
     })
 }
 fn publish(path: &Path, run: &Run, job: &mut JobRecord, bytes: &[u8], fmt: &str) -> Result<()> {
@@ -635,6 +869,36 @@ pub async fn work(
                 .iter()
                 .all(|d| states.get(d) == Some(&State::Succeeded))
             {
+                continue;
+            }
+            if run.jobs[i].input.audiobook.is_some() {
+                // Chapter and book assembly (and MP3 encoding) can take minutes;
+                // keep it off the scheduler so provider requests keep flowing.
+                run.jobs[i].state = State::Running;
+                crate::progress::save(
+                    &path,
+                    &run.jobs[i].input.id,
+                    crate::progress::Stage::Assembling,
+                )?;
+                save(&path.join("run.yaml"), &run)?;
+                let snapshot = run.clone();
+                let job = run.jobs[i].clone();
+                let fallback = job.clone();
+                let dir = path.clone();
+                handles.spawn(async move {
+                    let job = tokio::task::spawn_blocking(move || {
+                        crate::audiobook_assembly::run(&dir, &snapshot, job)
+                    })
+                    .await
+                    .unwrap_or_else(|_| {
+                        let mut job = fallback;
+                        job.state = State::Failed;
+                        job.error = Some("Audiobook assembly stopped unexpectedly".into());
+                        job
+                    });
+                    (i, job)
+                });
+                running += 1;
                 continue;
             }
             if run.jobs[i].input.media == Media::Podcast
@@ -1050,7 +1314,7 @@ pub fn recover(
         Media::Image | Media::Infographic => matches!(format, "png" | "jpeg" | "webp"),
         Media::Speech | Media::Music | Media::Sfx => matches!(format, "wav" | "mp3" | "flac"),
         Media::Text => format == "md",
-        _ => false,
+        Media::Podcast | Media::Audiobook => false,
     };
     if !allowed {
         return Err(Error::input("Recovered format does not match job media"));

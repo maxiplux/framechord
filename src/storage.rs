@@ -145,3 +145,36 @@ pub fn version2(v: u32) -> Result<()> {
         )))
     }
 }
+
+/// Streaming SHA-256 and size of a file.
+pub fn hash_file(path: &Path) -> Result<(String, u64)> {
+    let mut file = std::io::BufReader::new(fs::File::open(path)?);
+    let mut hasher = Sha256::new();
+    let bytes = std::io::copy(&mut file, &mut hasher)?;
+    Ok((hex::encode(hasher.finalize()), bytes))
+}
+/// A temporary file beside `path`, persisted into place by `persist`.
+pub fn temp_beside(path: &Path) -> Result<tempfile::NamedTempFile> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(parent)?;
+    Ok(tempfile::NamedTempFile::new_in(parent)?)
+}
+pub fn persist(tmp: tempfile::NamedTempFile, path: &Path, overwrite: bool) -> Result<()> {
+    tmp.as_file().sync_all()?;
+    if overwrite {
+        tmp.persist(path).map_err(|e| Error::io(e.error))?;
+    } else {
+        tmp.persist_noclobber(path)
+            .map_err(|e| Error::io(e.error))?;
+    }
+    Ok(())
+}
+/// Streaming atomic copy, for artifacts too large to hold in memory.
+pub fn copy_atomic(from: &Path, to: &Path, overwrite: bool) -> Result<()> {
+    let tmp = temp_beside(to)?;
+    std::io::copy(&mut fs::File::open(from)?, &mut tmp.as_file())?;
+    persist(tmp, to, overwrite)
+}

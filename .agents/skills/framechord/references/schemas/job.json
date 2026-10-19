@@ -68,6 +68,64 @@
       ],
       "type": "object"
     },
+    "AudioFormat": {
+      "description": "Published audio container for audiobook chapters and the full book.",
+      "enum": [
+        "wav",
+        "mp3"
+      ],
+      "type": "string"
+    },
+    "AudiobookOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "announce_titles": {
+          "default": false,
+          "description": "Speak each chapter title before its text.",
+          "type": "boolean"
+        },
+        "author": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "$ref": "#/$defs/AudioFormat",
+          "default": "wav"
+        },
+        "max_chars_per_request": {
+          "description": "Upper bound for one provider request; never above the model's own limit.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "mp3_bitrate_kbps": {
+          "description": "Constant MP3 bitrate; 32–160 kbps at the 24 kHz mono working rate (default 64).",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "output_mode": {
+          "$ref": "#/$defs/OutputMode",
+          "default": "full"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "CastMember": {
       "additionalProperties": false,
       "properties": {
@@ -89,6 +147,55 @@
         "character"
       ],
       "type": "object"
+    },
+    "Chapter": {
+      "additionalProperties": false,
+      "description": "One explicitly listed audiobook chapter; its text file holds the exact narrated words.",
+      "properties": {
+        "brief": {
+          "description": "Optional chapter-specific delivery direction; never spoken.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/Settings",
+          "default": {
+            "duration_seconds": null,
+            "format": null,
+            "image_quality": null,
+            "instrumental": null,
+            "seed": null,
+            "size": null,
+            "voice": null
+          }
+        },
+        "text_file": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "text_file"
+      ],
+      "type": "object"
+    },
+    "EmptyPolicy": {
+      "enum": [
+        "skip",
+        "error"
+      ],
+      "type": "string"
     },
     "InfoReference": {
       "additionalProperties": false,
@@ -133,9 +240,25 @@
         "infographic",
         "speech",
         "podcast",
+        "audiobook",
         "music",
         "sfx",
         "text"
+      ],
+      "type": "string"
+    },
+    "OutputMode": {
+      "description": "`chapters` publishes one file per chapter; `full` also publishes the combined book.",
+      "enum": [
+        "chapters",
+        "full"
+      ],
+      "type": "string"
+    },
+    "PreamblePolicy": {
+      "enum": [
+        "include",
+        "skip"
       ],
       "type": "string"
     },
@@ -232,6 +355,30 @@
       },
       "type": "object"
     },
+    "Split": {
+      "additionalProperties": false,
+      "description": "How a Markdown manuscript is divided into chapters. Only ATX headings are boundaries.",
+      "properties": {
+        "empty_chapters": {
+          "$ref": "#/$defs/EmptyPolicy",
+          "default": "skip"
+        },
+        "heading_level": {
+          "format": "uint8",
+          "maximum": 6,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "preamble": {
+          "$ref": "#/$defs/PreamblePolicy",
+          "default": "include"
+        }
+      },
+      "required": [
+        "heading_level"
+      ],
+      "type": "object"
+    },
     "Turn": {
       "additionalProperties": false,
       "properties": {
@@ -320,8 +467,25 @@
           "assembly": {
             "type": "null"
           },
+          "audiobook": {
+            "type": "null"
+          },
           "cast": {
             "maxItems": 0
+          },
+          "chapters": {
+            "maxItems": 0
+          },
+          "manuscript": {
+            "type": "null"
+          },
+          "media": {
+            "not": {
+              "const": "audiobook"
+            }
+          },
+          "split": {
+            "type": "null"
           }
         }
       }
@@ -338,6 +502,16 @@
         }
       ]
     },
+    "audiobook": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AudiobookOptions"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "brief": {
       "type": [
         "string",
@@ -347,6 +521,13 @@
     "cast": {
       "items": {
         "$ref": "#/$defs/CastMember"
+      },
+      "type": "array"
+    },
+    "chapters": {
+      "description": "Audiobook source: explicit ordered chapters.",
+      "items": {
+        "$ref": "#/$defs/Chapter"
       },
       "type": "array"
     },
@@ -367,6 +548,13 @@
       "type": "string"
     },
     "locale": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manuscript": {
+      "description": "Audiobook source: one Markdown manuscript split at headings.",
       "type": [
         "string",
         "null"
@@ -420,6 +608,16 @@
       "type": [
         "string",
         "null"
+      ]
+    },
+    "split": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Split"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "text_file": {

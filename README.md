@@ -1,6 +1,6 @@
 # FrameChord
 
-A local Rust CLI that lets coding agents, and the people working with them, generate the media a software project needs: images, infographics with exact copy, narration, podcasts, music and sound effects. It runs where the agent runs, keeps inputs and receipts as files in the repository, and bills nothing itself. Characters are optional: save a visual identity and a provider voice binding when you need reuse.
+A local Rust CLI that lets coding agents, and the people working with them, generate the media a software project needs: images, infographics with exact copy, narration, podcasts, audiobooks, music and sound effects. It runs where the agent runs, keeps inputs and receipts as files in the repository, and bills nothing itself. Characters are optional: save a visual identity and a provider voice binding when you need reuse.
 
 ## Why FrameChord
 
@@ -34,11 +34,12 @@ Human character consistency and media quality checks remain separate. See
 | Infographic | Structured YAML with exact copy/data plus a visual brief | Raster infographic requiring typography/data review |
 | Read an article aloud | Local text file and a selected voice | Narration file; original clips retained for chunked speech |
 | Podcast | YAML with ordered scripts and voices per turn | Individual clips and a combined WAV |
+| Audiobook, by chapter or the full book | A Markdown manuscript split at headings, or a chapter list, read by one narrator | One WAV or MP3 per chapter, optionally the full book with ID3 chapter markers, a chapter index and a .cue sheet |
 | Background music or a vocal jingle | Music brief, duration, instrumental/vocal choice, exact lyrics when supplied | Music file |
 | App or scene sound effects | Event/texture/timing brief and duration | Sound-effect file |
 | Recurring characters | Portable persona, visual/voice profiles and accepted references | Reusable inputs across jobs and projects |
 
-Google is the default for supported image, speech, podcast, music and text planning
+Google is the default for supported image, speech, podcast, audiobook, music and text planning
 workflows. OpenAI is an explicit alternative for images, speech and planning.
 Fish supports speech and authorized voice references; ElevenLabs supports speech,
 music, sound effects and explicit voice workflows. OpenRouter provides compatible
@@ -91,6 +92,11 @@ Then ask for real work, naming your files, destinations and anything that must s
 > run. Generate only after I say go, save the images to public/images/launch/ and add
 > them to the post.
 
+> Turn manuscript/my-novel.md into an audiobook with FrameChord, one chapter per
+> `#` heading, read by a single warm narrator. Do not change any words. Validate it,
+> show me the chapter list, the totals and whether it fits my limits, then generate
+> chapter 1 only to audio/my-novel/ as MP3 so I can listen before the rest.
+
 > Write a 90-second, two-host podcast script from the 2.3 section of CHANGELOG.md and
 > show it to me before any audio is made. After I approve the script, author a FrameChord
 > podcast job with two distinct voices, preview it, and generate it to
@@ -98,7 +104,7 @@ Then ask for real work, naming your files, destinations and anything that must s
 
 Every image, voice and note in the [web guide](https://framechord.com/#showcase) came from
 one such request to a coding agent. The guide's
-[Hand it to your agent](https://framechord.com/#delegate) section has twelve copyable
+[Hand it to your agent](https://framechord.com/#delegate) section has thirteen copyable
 prompts by use case, from app sound effects to a consistent mascot, and the case study of
 how the guide's own media was made. Agents can read the whole guide as Markdown at
 <https://framechord.com/index.md>; <https://framechord.com/llms.txt> indexes it.
@@ -327,6 +333,48 @@ The [podcast template](assets/templates/podcast.yaml) also documents optional
 turn gains and loudness targets. Music beds are separate assets; automatic music
 mixing into the podcast is not part of this command.
 
+### Audiobook, chapter by chapter or the full book
+
+An audiobook is one narrator reading exact text; it is not a podcast. Put the book
+in one Markdown file with a `#` heading per chapter (YAML front matter is skipped),
+then copy the [audiobook template](assets/templates/audiobook.yaml):
+
+```yaml
+schema_version: 2
+id: my-novel
+media: audiobook
+brief: narration.md          # delivery direction, never spoken
+manuscript: my-novel.md
+split: {heading_level: 1}
+locale: en-US
+assembly: {pause_ms: 2000, loudness_lufs: -19}
+audiobook:
+  output_mode: full          # or chapters: one file per chapter only
+  format: mp3                # or wav
+  announce_titles: true
+  title: My Novel
+  author: Jane Writer
+```
+
+```sh
+framechord validate --kind job my-novel.yaml
+framechord generate --job my-novel.yaml --chapter chapter-1 --output-dir audio --dry-run --json
+framechord generate --job my-novel.yaml --output-dir audio --dry-run --json
+```
+
+`validate` prints the chapter table with source lines, characters, request parts and
+the first and last words of each chapter, plus warnings for Markdown a speech model
+might read aloud. To list chapters explicitly instead, use
+[audiobook-chapters.yaml](assets/templates/audiobook-chapters.yaml). Outputs land in
+`audio/my-novel/`: `chapter-01-<id>.mp3` and so on, and with `output_mode: full`
+`my-novel.mp3` with ID3 chapter markers, `my-novel.chapters.json` and `my-novel.cue`.
+`--chapter` produces only the chosen chapters; a later run without it reuses them
+from cache and assembles the book. A whole book usually exceeds the default run
+limits; generation then stops before any request and names the limits to raise.
+`revise --chapter ID` re-reads one chapter and reassembles the book. MP3 encoding
+uses the bundled LAME library (LGPL; `framechord notices`). Audio is 24 kHz mono;
+WAV books stop at about 24.8 hours.
+
 ### Instrumental music or a vocal jingle
 
 Write `music.md` with purpose, genre, tempo, instruments, mood and structure using
@@ -513,7 +561,7 @@ For Fish synthesis without a saved voice, use `--voice-sample`,
 character. `persona accept-sample` copies the recording, transcript, permission,
 and evidence into its portable folder. See the [voice workflow](assets/skill/references/voices.md).
 
-Generation success and semantic quality are separate. Local artifact integrity is checked automatically. Explicit `review check --ai --provider ... --model ...` supports image review using OpenAI/OpenRouter multimodal text models; Google audio review supports `gemini-3.8-flash` against exact scripts, briefs, and accepted voice recordings. Inline requests must fit 20 MiB; review individual clips for larger jobs. Completed AI reviews are saved with provider receipts and reused on identical commands; unknown review outcomes require explicit `--retry-unknown`. `review reconcile --artifact ID` retrieves uncertain Google audio assessments without resubmission. Human or agent assessments require provenance. Revisions create child runs, preserve originals, and inherit budgets. `--source-job` enables explicit updated scripts/copy; `--turn` targets a podcast turn and reuses unchanged clips.
+Generation success and semantic quality are separate. Local artifact integrity is checked automatically. Explicit `review check --ai --provider ... --model ...` supports image review using OpenAI/OpenRouter multimodal text models; Google audio review supports `gemini-3.8-flash` against exact scripts, briefs, and accepted voice recordings. Inline requests must fit 20 MiB; review individual clips for larger jobs. Completed AI reviews are saved with provider receipts and reused on identical commands; unknown review outcomes require explicit `--retry-unknown`. `review reconcile --artifact ID` retrieves uncertain Google audio assessments without resubmission. Human or agent assessments require provenance. Revisions create child runs, preserve originals, and inherit budgets. `--source-job` enables explicit updated scripts/copy; `--turn` targets a podcast turn and reuses unchanged clips; `--chapter` targets an audiobook chapter and reassembles the book.
 
 ## Agent integration and limits
 
@@ -521,7 +569,7 @@ Generation success and semantic quality are separate. Local artifact integrity i
 
 The exported skill includes all current commands/flags generated from the same CLI definitions, schemas, templates, authoring examples, lifecycle, review, progress, and limit guidance. Use `--json --non-interactive` for process callers. JSON stays on stdout; progress and diagnostics use stderr. Result views show reference metadata/hashes, while complete embedded bytes stay in run YAML. Interactive terminals get a colored job-count bar and a spinner for unknown provider completion. `--progress auto|plain|off`, `--color auto|always|never`, and `NO_COLOR` control presentation.
 
-Default budgets per run lineage: 20 creation requests, 8 images, 1,800 reserved audio seconds, 60,000 speech characters, 3 revisions, 3 attempts per job. Default host concurrency: 4 globally, 2 per provider; per-run limits can be configured up to 32/16, while shared host ceilings also apply. `config host show` reads ceilings; explicit `config host setup --file host-limits.yaml` changes only framechord user configuration. `--limits-file` supplies explicit per-run limits. Speech duration is an estimate; overrun artifacts are retained and further requests stop when the budget is exhausted. These are volume controls, not a dollar cap. `framechord usage --json` reports provider-returned units beside labelled list-price estimates from the dated bundled table (`--price-table FILE` overrides it); estimates never replace a provider-reported cost, `currency_total` stays null, and unpriceable work is reported as not estimable. See [what it costs](docs/COST.md).
+Default budgets per run lineage: 20 creation requests, 8 images, 1,800 reserved audio seconds, 60,000 speech characters, 3 revisions, 3 attempts per job. Default host concurrency: 4 globally, 2 per provider; per-run limits can be configured up to 32/16, while shared host ceilings also apply. `config host show` reads ceilings; explicit `config host setup --file host-limits.yaml` changes only framechord user configuration. `--limits-file` supplies explicit per-run limits. Speech duration is an estimate; overrun artifacts are retained and further requests stop when the budget is exhausted. Audiobooks are checked as a whole before the run starts, so a book that does not fit makes no request at all. These are volume controls, not a dollar cap. `framechord usage --json` reports provider-returned units beside labelled list-price estimates from the dated bundled table (`--price-table FILE` overrides it); estimates never replace a provider-reported cost, `currency_total` stays null, and unpriceable work is reported as not estimable. See [what it costs](docs/COST.md).
 
 Requests do not silently switch providers. Matching fingerprints reuse only verified local artifacts; `--fresh` bypasses reuse. `--request-id` provides submission idempotency. Safe rejected jobs can be resumed, with provider retry guidance honored. Use `runs reconcile RUN_ID` to retrieve uncertain Google interactions by saved ID, then resume local publication. Unknown submissions without retrievable results require explicit `--retry-unknown`; they may already have been charged. Successful jobs remain intact when a batch fails.
 

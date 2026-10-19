@@ -122,11 +122,26 @@ same agent that writes the code. For those, a few dollars a month at list price 
 a fixed plan, and the inputs, receipts and outputs stay versioned next to the code. It
 is not the cheaper option for video, upscaling or studio-scale image volume.
 
+## Audiobooks
+
+An audiobook is priced like any long narration: each chapter is split into requests
+of at most 4,000 characters (less on models with a lower limit), and each request is
+priced on its own row. As a worked example from the rates above (read 2026-10-15): an
+80,000-word novel is roughly 450,000 characters, or 8 to 10 hours of narration. On the
+default `gemini-3.8-flash-tts` at "$0.00225 per 10s audio", that is about $6.75 to $8.45
+of audio output plus a few cents of text input; on ElevenLabs `eleven_flash_v2_5` at
+$0.04 per 1,000 characters, about $18. The actual duration depends on the voice and
+pace, Google's rates double from 2027-01-01, and `usage` reports the real figures
+afterwards. A whole book is far beyond the default run limits (20 requests, 60,000
+speech characters), so FrameChord stops before the first request and names the limits
+to raise; produce a chapter first with `--chapter` to check the voice before paying for
+the rest.
+
 ## How `usage` estimates work
 
 - `cost_status` per job is `estimated`, `provider_reported`, `cached_no_charge` or
-  `not_estimable`; review and voice operations, and the podcast parent that only
-  assembles clips, are `not_estimated`.
+  `not_estimable`; review and voice operations, and the podcast, audiobook chapter and
+  audiobook book jobs that only assemble clips, are `not_estimated`.
 - Images are priced per artifact by resolution tier from the recorded width and height
   (0.5K up to 0.6 megapixels, 1K up to 2, 2K up to 8, 4K above). OpenAI images are
   priced from reported output tokens and marked `partial` because input tokens use

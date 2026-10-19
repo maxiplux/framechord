@@ -73,10 +73,11 @@ The HTML contains:
 
 - Compiled Tailwind CSS 4.3.3 with the guide's component styles in a `<style>` tag.
 - Embedded JavaScript for search, navigation and copy buttons.
-- Twenty sections: the narrated showcase, “Hand it to your agent” with twelve copyable
-  prompts and the case study of the guide's own media, eight practical scenarios, and
-  seventeen workflow/reference sections ending with 65 expandable command help pages.
-- Four download links carrying the same embedded ZIP of 35 example files.
+- Twenty-one sections: the narrated showcase (with the audiobook sample), “Hand it to
+  your agent” with thirteen copyable prompts and the case study of the guide's own
+  media, nine practical scenarios, and eighteen workflow/reference sections ending with
+  66 expandable command help pages.
+- Four download links carrying the same embedded ZIP of 41 example files.
 - An opt-in Google Analytics consent banner; see [Analytics consent](#analytics-consent).
 
 Example downloads extract into `examples/` in your target project. They retain

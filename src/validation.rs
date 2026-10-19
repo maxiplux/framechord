@@ -12,11 +12,7 @@ pub fn config(config: &Config) -> Result<()> {
     limits(&config.limits)?;
     for (media, selection) in &config.defaults {
         model(selection)?;
-        let target = match media {
-            Media::Infographic => Media::Image,
-            Media::Podcast => Media::Speech,
-            other => *other,
-        };
+        let target = crate::catalog::target(*media);
         let supported = if target == Media::Text {
             matches!(
                 selection.provider,
@@ -46,11 +42,7 @@ pub fn config(config: &Config) -> Result<()> {
                 "Default settings require an explicit provider/model for the same media type",
             )
         })?;
-        let target = match media {
-            Media::Infographic => Media::Image,
-            Media::Podcast => Media::Speech,
-            other => *other,
-        };
+        let target = crate::catalog::target(*media);
         let mut probe = Effective {
             assembly: None,
             id: "configuration-check".into(),
@@ -69,6 +61,7 @@ pub fn config(config: &Config) -> Result<()> {
             depends_on: vec![],
             output: None,
             turns: vec![],
+            audiobook: None,
         };
         if target == Media::Speech && probe.settings.voice.is_none() {
             probe.settings.voice = Some("configuration-placeholder".into());
@@ -335,13 +328,38 @@ fn resolve_inner(
     cfg: &Config,
     index: Option<&crate::provenance::Index>,
 ) -> Result<Effective> {
+    resolve_with(job, base, cfg, index, None)
+}
+/// `inline` supplies exact speech text already read from a manuscript, in place of `text_file`.
+fn resolve_with(
+    job: &Job,
+    base: &Path,
+    cfg: &Config,
+    index: Option<&crate::provenance::Index>,
+    inline: Option<&str>,
+) -> Result<Effective> {
     version2(job.schema_version)?;
     id(&job.id)?;
     if job.schema_version == 1 && (!job.cast.is_empty() || job.assembly.is_some()) {
         return Err(Error::input("cast and assembly require schema_version 2"));
     }
+    let audiobook_fields = job.manuscript.is_some()
+        || job.split.is_some()
+        || !job.chapters.is_empty()
+        || job.audiobook.is_some();
+    if job.schema_version == 1 && (job.media == Media::Audiobook || audiobook_fields) {
+        return Err(Error::input("audiobook requires schema_version 2"));
+    }
+    if job.media != Media::Audiobook && audiobook_fields {
+        return Err(Error::input(
+            "manuscript, split, chapters and audiobook are only valid for audiobook jobs",
+        ));
+    }
     if !job.cast.is_empty() {
         return resolve_cast(job, base, cfg, index);
+    }
+    if job.media == Media::Audiobook {
+        return crate::audiobook::resolve(job, base, cfg, index);
     }
     if let Some(assembly) = &job.assembly {
         if job.media != Media::Podcast {
@@ -365,9 +383,11 @@ fn resolve_inner(
         Some(p) => text(base, p)?,
         None => String::new(),
     };
-    let speech = match &job.text_file {
-        Some(p) => Some(text(base, p)?),
-        None => None,
+    let speech = match (inline, &job.text_file) {
+        (Some(words), None) => Some(words.to_owned()),
+        (None, Some(p)) => Some(text(base, p)?),
+        (None, None) => None,
+        (Some(_), Some(_)) => return Err(Error::input("Speech text has two sources")),
     };
     let mut references = job
         .references
@@ -677,6 +697,10 @@ fn resolve_inner(
                 locale: locale.clone(),
                 depends_on: vec![],
                 output: None,
+                manuscript: None,
+                split: None,
+                chapters: vec![],
+                audiobook: None,
             };
             turns.push(resolve_inner(&turn, base, cfg, index)?);
         }
@@ -709,6 +733,7 @@ fn resolve_inner(
             .map(|p| absolute(&base.join(p)))
             .transpose()?,
         turns,
+        audiobook: None,
     };
     if input.media == Media::Speech
         && let Some(limit) = providers::speech_limit(&input.selection)
@@ -753,6 +778,110 @@ pub fn split_script(source: &str, max_chars: usize) -> Vec<String> {
         parts.push(remaining.to_owned());
     }
     parts
+}
+/// Resolve one audiobook chapter as speech with exact in-memory text.
+pub(crate) fn resolve_chapter(
+    job: &Job,
+    base: &Path,
+    cfg: &Config,
+    index: Option<&crate::provenance::Index>,
+    words: &str,
+) -> Result<Effective> {
+    resolve_with(job, base, cfg, index, Some(words))
+}
+fn paragraph_break(s: &str) -> Option<usize> {
+    s.match_indices('\n').map(|(i, _)| i).find(|&i| {
+        let after = &s[i + 1..];
+        after.strip_prefix('\r').unwrap_or(after).starts_with('\n')
+    })
+}
+/// Paragraph-aligned chunks that concatenate back to `source` exactly.
+///
+/// Whole paragraphs are packed greedily; an oversized paragraph is cut after a
+/// sentence end in the second half of the window, else at whitespace, else at
+/// a character boundary. Paragraph alignment keeps an edit early in a chapter
+/// from moving later boundaries, so unchanged parts stay cached.
+pub fn chunk_paragraphs(source: &str, max_chars: usize) -> Vec<String> {
+    let max_chars = max_chars.max(1);
+    let mut paragraphs = vec![];
+    let mut rest = source;
+    while !rest.is_empty() {
+        let end = match paragraph_break(rest) {
+            Some(i) => rest[i..]
+                .char_indices()
+                .find(|(_, c)| !matches!(c, '\n' | '\r'))
+                .map_or(rest.len(), |(j, _)| i + j),
+            None => rest.len(),
+        };
+        paragraphs.push(&rest[..end]);
+        rest = &rest[end..];
+    }
+    let mut chunks: Vec<String> = vec![];
+    let mut current = String::new();
+    let mut count = 0;
+    for paragraph in paragraphs {
+        let len = paragraph.chars().count();
+        if count + len <= max_chars {
+            current.push_str(paragraph);
+            count += len;
+            continue;
+        }
+        if !current.is_empty() {
+            chunks.push(std::mem::take(&mut current));
+        }
+        if len <= max_chars {
+            current.push_str(paragraph);
+            count = len;
+            continue;
+        }
+        let mut remaining = paragraph;
+        while remaining.chars().count() > max_chars {
+            let end = remaining
+                .char_indices()
+                .nth(max_chars)
+                .map(|(i, _)| i)
+                .unwrap();
+            let window = &remaining[..end];
+            let chars: Vec<(usize, char)> = window.char_indices().collect();
+            let sentence = chars
+                .windows(2)
+                .filter(|w| {
+                    w[0].0 > end / 2
+                        && matches!(w[0].1, '.' | '!' | '?' | '…' | '。' | '！' | '？')
+                        && w[1].1.is_whitespace()
+                })
+                .map(|w| w[1].0 + w[1].1.len_utf8())
+                .next_back();
+            let space = || {
+                window
+                    .char_indices()
+                    .filter(|(i, c)| *i > end / 2 && c.is_whitespace())
+                    .map(|(i, c)| i + c.len_utf8())
+                    .next_back()
+            };
+            let boundary = sentence.or_else(space).unwrap_or(end);
+            chunks.push(remaining[..boundary].to_owned());
+            remaining = &remaining[boundary..];
+        }
+        current.push_str(remaining);
+        count = remaining.chars().count();
+    }
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+    // Never send a whitespace-only request: fold it into the previous chunk.
+    let mut out: Vec<String> = vec![];
+    for chunk in chunks {
+        match out.last_mut() {
+            Some(last) if chunk.trim().is_empty() => last.push_str(&chunk),
+            _ => out.push(chunk),
+        }
+    }
+    if out.len() > 1 && out[0].trim().is_empty() {
+        let first = out.remove(0);
+        out[0].insert_str(0, &first);
+    }
+    out
 }
 pub fn graph(jobs: &[Effective]) -> Result<()> {
     if jobs.is_empty() {

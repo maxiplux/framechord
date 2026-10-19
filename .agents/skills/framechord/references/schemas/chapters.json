@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "AudioFormat": {
+      "description": "Published audio container for audiobook chapters and the full book.",
+      "enum": [
+        "wav",
+        "mp3"
+      ],
+      "type": "string"
+    },
+    "IndexedChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "end_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "file": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "index": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "start_seconds": {
+          "description": "Position within the combined book; with `chapters` output it is the\nposition the chapter would have with the configured pause.",
+          "format": "double",
+          "type": "number"
+        },
+        "text_sha256": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "index",
+        "id",
+        "file",
+        "sha256",
+        "start_seconds",
+        "duration_seconds",
+        "end_seconds",
+        "source",
+        "text_sha256"
+      ],
+      "type": "object"
+    },
+    "IndexedFile": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "duration_seconds",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "OutputMode": {
+      "description": "`chapters` publishes one file per chapter; `full` also publishes the combined book.",
+      "enum": [
+        "chapters",
+        "full"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Sidecar written beside audiobook outputs (`<book>.chapters.json`).",
+  "properties": {
+    "author": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "book": {
+      "type": "string"
+    },
+    "channels": {
+      "format": "uint16",
+      "maximum": 65535,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "chapters": {
+      "items": {
+        "$ref": "#/$defs/IndexedChapter"
+      },
+      "type": "array"
+    },
+    "format": {
+      "$ref": "#/$defs/AudioFormat"
+    },
+    "full": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IndexedFile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Relative path of the combined book, when `output_mode` is `full`."
+    },
+    "output_mode": {
+      "$ref": "#/$defs/OutputMode"
+    },
+    "pause_ms": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sample_rate": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "book",
+    "format",
+    "output_mode",
+    "sample_rate",
+    "channels",
+    "pause_ms",
+    "chapters"
+  ],
+  "title": "ChapterIndex",
+  "type": "object"
+}

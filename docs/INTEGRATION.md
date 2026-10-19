@@ -60,7 +60,7 @@ variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `FISH_API_KEY`, `OPENROUTER_API_K
 provider needed by a command is read.
 
 **Outputs.** `--output FILE` writes one final artifact where you ask (an existing file
-needs `--overwrite`); `--output-dir DIR` is for batches and podcast clips. Without either,
+needs `--overwrite`); `--output-dir DIR` is for batches, podcast clips and audiobooks (`DIR/<book>/`). Without either,
 artifacts land under `framechord/runs/<run-id>/outputs/`, which is ignored. Paths in
 JSON results are absolute. Generated media you want to ship belongs in your own asset
 folder, named by `--output`.
@@ -225,7 +225,7 @@ reads:
 ```markdown
 ## Media assets
 
-Use the `framechord` CLI for images, infographics, narration, podcasts, music and
+Use the `framechord` CLI for images, infographics, narration, podcasts, audiobooks, music and
 sound effects. Read `tools/framechord-skill/SKILL.md` and its references first.
 Author inputs from the templates, run `framechord validate`, preview with
 `framechord generate ... --dry-run --json`, and generate only when asked. Always pass

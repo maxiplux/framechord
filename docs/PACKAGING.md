@@ -28,7 +28,7 @@ Initialization opens a looping terminal checklist with Google image, speech, mus
 
 The packager copies the executable outside the source checkout and verifies 18 isolated offline workflows: detecting the executable/configuration name collision without writes; preserving credentials on repeat initialization; embedded Codex/Claude skills; native Copilot/Gemini skill targets; recommended defaults and setup readiness; portable skill export; generation dry-run; strict schemas; optional initial profiles; explicit defaults and profile seeding; offline provider diagnostics; bounded verification previews; preserving migration previews; usage/storage previews; embedded v2 cast/recovery guidance; offline user installation/repeat checks; native bootstrap installation/repeat/checksum-rejection tests with mocked downloads; and preservation of legacy project paths, identities and configuration. Subprocesses receive no live API keys and make no provider requests.
 
-Each archive contains the executable, a usage README, a secret-free `.env.example`, and `verification.json` recording the binary hash and executed checks. macOS/Linux use tar.gz to preserve executable permissions; Windows uses ZIP. Build products stay ignored under `target/` and contain no generated media or project characters.
+Each archive contains the executable, a usage README, a secret-free `.env.example`, `THIRD_PARTY_NOTICES.md`, and `verification.json` recording the binary hash and executed checks. macOS/Linux use tar.gz to preserve executable permissions; Windows uses ZIP. Build products stay ignored under `target/` and contain no generated media or project characters.
 
 For 0.3.1, Windows x86-64, macOS Apple Silicon and Linux x86-64 each pass 144 offline tests, formatting and strict Clippy. The [0.3.1 native package run and downloads](https://github.com/maxiplux/framechord/actions/runs/38673081221) record the 14 isolated checks per platform, built from code revision `5318faa`; subsequent changes only update documentation. The local macOS package and downloaded macOS/Linux archives have also passed integrity/hash verification. See [implementation status](STATUS.md). Native execution checks do not prove provider entitlement, media quality, character consistency, or automatic skill discovery in a fresh agent session.
 
@@ -40,3 +40,17 @@ Publication requires all three targets to pass tests and package/bootstrap check
 Historical releases retain their original assets, including Intel Mac builds.
 `verification.json` records `source_commit` and `source_dirty`; release publication
 requires the exact clean tag checkout. See [release maintenance](INSTALLATION.md#maintainer-release-workflow).
+
+## MP3 encoder and the LGPL
+
+Audiobook MP3 output uses LAME 3.100, built from the copy bundled in the
+`mp3lame-sys` crate and statically linked into the default build (the `mp3` Cargo
+feature). LAME is licensed under the GNU LGPL; the `mp3lame-sys` and `mp3lame-encoder`
+bindings are LGPL-3.0. Every archive includes `THIRD_PARTY_NOTICES.md` with the license
+texts, source location and relinking instructions, and every binary prints the same
+file with `framechord notices`, because raw executables are also published without an
+archive. `cargo build --no-default-features` produces a binary without the encoder;
+audiobook `format: mp3` then fails validation. On Unix the LAME build uses its
+autotools scripts (a C compiler and `make`); on Windows it is compiled with MSVC
+through the `cc` crate. The obligations that follow from static LGPL linking have not
+been reviewed by counsel.

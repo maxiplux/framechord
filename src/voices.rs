@@ -189,6 +189,7 @@ pub async fn design(
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     };
     let operation = operations::perform(
         &dir.join("design-operation.yaml"),
@@ -365,6 +366,7 @@ pub async fn create(
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     };
     let mut operation = operations::perform(
         &operation_path,
@@ -561,6 +563,7 @@ pub async fn clone_voice(
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     };
     let mut operation = operations::perform(
         &path,

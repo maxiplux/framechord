@@ -168,6 +168,8 @@ pub enum Command {
         #[arg(long,default_value_t=10,value_parser=clap::value_parser!(u64).range(1..=60))]
         timeout_seconds: u64,
     },
+    /// Print third-party license notices for components bundled in this binary
+    Notices,
     /// Print a JSON Schema for a versioned manifest
     Schema {
         #[arg(value_parser=clap::builder::PossibleValuesParser::new(SCHEMAS.iter().copied()))]
@@ -267,6 +269,9 @@ pub enum Command {
         /// Reusable YAML job; settings/provider overrides are explicit, authoring flags conflict
         #[arg(long,conflicts_with_all=["media","prompt","brief_file","text","text_file","spec","character","reference","identity_reference","voice_sample","sample_transcript","consent_file"])]
         job: Option<PathBuf>,
+        /// Audiobook only: generate just these chapter IDs (repeatable); a later run without it assembles the book
+        #[arg(long = "chapter", requires = "job")]
+        chapters: Vec<String>,
         #[command(flatten)]
         input: Box<Input>,
         #[command(flatten)]
@@ -309,6 +314,9 @@ pub enum Command {
         /// Revise one podcast turn and reuse verified unchanged clips
         #[arg(long)]
         turn: Option<String>,
+        /// Revise one audiobook chapter, reuse unchanged chapters, and reassemble the book
+        #[arg(long, conflicts_with = "turn")]
+        chapter: Option<String>,
         #[arg(long)]
         r#async: bool,
     },
@@ -326,6 +334,10 @@ pub enum Command {
         /// Selected image/audio assets copied by the binary
         #[arg(long = "asset")]
         selected_assets: Vec<PathBuf>,
+        /// Exact source text (Markdown or plain text, such as a book manuscript) copied
+        /// into the bundle; only its path, size and hash are sent to the planner
+        #[arg(long = "source")]
+        sources: Vec<PathBuf>,
         #[arg(long, value_enum)]
         provider: Option<Provider>,
         #[arg(long)]
@@ -712,6 +724,7 @@ pub const SCHEMAS: &[&str] = &[
     "host_limits",
     "diagnostics",
     "verification",
+    "chapters",
 ];
 pub fn schema(kind: &str) -> Result<Value> {
     macro_rules! s {
@@ -727,7 +740,7 @@ pub fn schema(kind: &str) -> Result<Value> {
         "infographic" => s!(Infographic),
         "job" => {
             let mut schema = s!(Job);
-            schema["allOf"] = json!([{"if":{"properties":{"schema_version":{"const":1}}},"then":{"properties":{"cast":{"maxItems":0},"assembly":{"type":"null"}}}}]);
+            schema["allOf"] = json!([{"if":{"properties":{"schema_version":{"const":1}}},"then":{"properties":{"cast":{"maxItems":0},"assembly":{"type":"null"},"media":{"not":{"const":"audiobook"}},"manuscript":{"type":"null"},"split":{"type":"null"},"chapters":{"maxItems":0},"audiobook":{"type":"null"}}}}]);
             schema
         }
         "batch" => s!(Batch),
@@ -742,6 +755,7 @@ pub fn schema(kind: &str) -> Result<Value> {
         "voice_consent" => s!(VoiceConsent),
         "voice_clone" => s!(VoiceClone),
         "host_limits" => s!(crate::setup::HostLimits),
+        "chapters" => s!(ChapterIndex),
         _ => return Err(Error::input("Unknown schema")),
     })
 }
@@ -919,6 +933,111 @@ pub fn human_result(data: &Value) -> String {
     if let Some(content) = data.get("content").and_then(Value::as_str) {
         return content.into();
     }
+    if let Some(book) = data["audiobook"].as_object()
+        && data["valid"] == true
+    {
+        let mut out = format!(
+            "Audiobook valid: {} chapters, {} provider requests, {} speech characters, about {} min\n",
+            book["totals"]["chapters"],
+            book["totals"]["requests"],
+            book["totals"]["speech_chars"],
+            book["totals"]["estimated_audio_seconds"]
+                .as_u64()
+                .unwrap_or(0)
+                .div_ceil(60)
+        );
+        out += &format!(
+            "Narrator: {}/{} voice {} ({})\n",
+            book["narrator"]["selection"]["provider"]
+                .as_str()
+                .unwrap_or(""),
+            book["narrator"]["selection"]["model"]
+                .as_str()
+                .unwrap_or(""),
+            book["narrator"]["voice"].as_str().unwrap_or("from samples"),
+            book["narrator"]["selection_source"].as_str().unwrap_or("")
+        );
+        for c in book["chapters"].as_array().into_iter().flatten() {
+            out += &format!(
+                "{:>3}. {} {} — {} chars, {} parts, lines {}\n      starts: {}\n      ends:   {}\n",
+                c["index"],
+                c["id"].as_str().unwrap_or(""),
+                c["title"]
+                    .as_str()
+                    .map(|t| format!("\"{t}\""))
+                    .unwrap_or_default(),
+                c["chars"],
+                c["parts"],
+                c["source"]
+                    .as_str()
+                    .and_then(|s| s.rsplit(':').next())
+                    .unwrap_or(""),
+                c["opening"].as_str().unwrap_or(""),
+                c["closing"].as_str().unwrap_or("")
+            );
+        }
+        for skipped in book["skipped"].as_array().into_iter().flatten() {
+            out += &format!(
+                "Skipped line {}: {}\n",
+                skipped["line"],
+                skipped["reason"].as_str().unwrap_or("")
+            );
+        }
+        for warning in book["warnings"].as_array().into_iter().flatten() {
+            out += &format!("Warning: {}\n", warning.as_str().unwrap_or(""));
+        }
+        if book["budget"]["fits"] == false {
+            out += &format!(
+                "Exceeds run limits {}; generation will stop before any request until limits are raised or --chapter is used\n",
+                book["budget"]["limits"]
+            );
+        }
+        return out;
+    }
+    if let Some(books) = data["audiobook"].as_array() {
+        let mut out = format!(
+            "Run {}: {}\n",
+            data["id"].as_str().unwrap_or(""),
+            data["state"].as_str().unwrap_or("")
+        );
+        for book in books {
+            out += &format!(
+                "Audiobook {}: {}\n",
+                book["job"].as_str().unwrap_or(""),
+                if book["complete"] == true {
+                    "complete"
+                } else {
+                    "incomplete"
+                }
+            );
+            for c in book["chapters"].as_array().into_iter().flatten() {
+                out += &format!(
+                    "{:>3}. {}: {}{}\n",
+                    c["index"],
+                    c["id"].as_str().unwrap_or(""),
+                    c["state"].as_str().unwrap_or(""),
+                    c["path"]
+                        .as_str()
+                        .map(|p| format!("  {p}"))
+                        .unwrap_or_default()
+                );
+                if let Some(error) = c["error"].as_str() {
+                    out += &format!("     {error}\n");
+                }
+            }
+            if let Some(path) = book["full"]["path"].as_str() {
+                out += &format!("Full book: {path}\n");
+            }
+            if let Some(path) = book["sidecars"]["chapters_json"].as_str() {
+                out += &format!("Chapter index: {path}\n");
+            }
+            if let Some(error) = book["error"].as_str() {
+                out += &format!("{error}\n");
+            }
+            out += &format!("{}\n", book["next"].as_str().unwrap_or(""));
+        }
+        return out;
+    }
     let run = data.get("run").unwrap_or(data);
     if let Ok(run) = serde_json::from_value::<Run>(run.clone()) {
         let mut out = format!("Run {}: {}\n", run.id, crate::progress::label(run.state));
@@ -1016,6 +1135,10 @@ fn direct_job(media: Media, input: &Input, dir: &Path) -> Result<Job> {
         locale: input.locale.clone(),
         depends_on: vec![],
         output: None,
+        manuscript: None,
+        split: None,
+        chapters: vec![],
+        audiobook: None,
     })
 }
 fn apply_job_overrides(job: &mut Job, input: &Input) {
@@ -1425,6 +1548,10 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                 ))
             }
         },
+        Command::Notices => Ok((
+            json!({"content": include_str!("../assets/THIRD_PARTY_NOTICES.md"), "mp3_encoder": cfg!(feature = "mp3")}),
+            0,
+        )),
         Command::Validate { kind, path } => {
             let cfg = project::config(&root)?;
             let data = match kind.as_str() {
@@ -1455,12 +1582,27 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                 "infographic" => json!(validation::infographic(path)?.0),
                 "job" => {
                     let j: Job = yaml(path)?;
-                    json!(validation::resolve_project(
-                        &root,
-                        &j,
-                        path.parent().unwrap_or(Path::new(".")),
-                        &cfg
-                    )?)
+                    let base = path.parent().unwrap_or(Path::new("."));
+                    let effective = validation::resolve_project(&root, &j, base, &cfg)?;
+                    if effective.media == Media::Audiobook {
+                        let mut summary = crate::audiobook::summary(&j, base, &cfg, &effective)?;
+                        summary["budget"] = engine::audiobook_preflight(
+                            &root,
+                            std::slice::from_ref(&effective),
+                            &cfg.limits,
+                            false,
+                            None,
+                        )?
+                        .report
+                        .unwrap_or(Value::Null);
+                        let mut view = json!(effective);
+                        crate::audiobook::compact(&mut view);
+                        return Ok((
+                            json!({"valid":true,"kind":kind,"audiobook":summary,"effective":view}),
+                            0,
+                        ));
+                    }
+                    json!(effective)
                 }
                 "batch" => json!(batch(&root, path)?),
                 "review" => {
@@ -1475,6 +1617,7 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
         Command::Generate {
             media,
             job,
+            chapters,
             input,
             execution,
         } => {
@@ -1484,15 +1627,32 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                 apply_job_overrides(&mut j, input);
                 validation::resolve_project(&root, &j, p.parent().unwrap_or(Path::new(".")), &cfg)?
             } else {
+                let media = media.ok_or_else(|| Error::input("Choose a media type or --job"))?;
+                if media == Media::Audiobook {
+                    let mut error = Error::input(
+                        "Audiobooks need a job manifest with a manuscript or chapter list; export templates and start from audiobook.yaml",
+                    );
+                    error.corrective_argv = vec![
+                        "framechord".into(),
+                        "templates".into(),
+                        "show".into(),
+                        "audiobook.yaml".into(),
+                    ];
+                    return Err(error);
+                }
                 let dir = tempfile::tempdir()?;
-                let j = direct_job(
-                    media.ok_or_else(|| Error::input("Choose a media type or --job"))?,
-                    input,
-                    dir.path(),
-                )?;
+                let j = direct_job(media, input, dir.path())?;
                 validation::resolve_project(&root, &j, dir.path(), &cfg)?
             };
+            if !chapters.is_empty() {
+                crate::audiobook::select(&mut resolved, chapters)?;
+            }
             if let Some(p) = &execution.output {
+                if resolved.media == Media::Audiobook {
+                    return Err(Error::input(
+                        "Audiobooks publish several files; use --output-dir instead of --output",
+                    ));
+                }
                 resolved.output = Some(absolute(p)?);
             }
             generate(cli, &root, vec![resolved], execution).await
@@ -1703,6 +1863,10 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                     locale: None,
                     depends_on: vec![],
                     output: None,
+                    manuscript: None,
+                    split: None,
+                    chapters: vec![],
+                    audiobook: None,
                 };
                 let input = validation::resolve_project(
                     &root,
@@ -1743,7 +1907,7 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
             RunAction::List => Ok((json!(engine::list(&root)?), 0)),
             RunAction::Status { run_id } => {
                 let r = engine::status(&root, run_id)?;
-                Ok((json!(r), 0))
+                Ok((run_value(&r), 0))
             }
             RunAction::Wait {
                 run_id,
@@ -1781,6 +1945,7 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
             instructions_file,
             source_job,
             turn,
+            chapter,
             r#async,
         } => {
             let instructions = text(Path::new("."), instructions_file)?;
@@ -1796,8 +1961,13 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                     )
                 })
                 .transpose()?;
+            let target = match (turn, chapter) {
+                (Some(t), _) => Some(Target::Turn(t.as_str())),
+                (_, Some(c)) => Some(Target::Chapter(c.as_str())),
+                _ => None,
+            };
             let (run, method) =
-                prepare_revision(&root, artifact, &instructions, replacement, turn.as_deref())?;
+                prepare_revision(&root, artifact, &instructions, replacement, target)?;
             engine::spawn(&root, &run.id, false)?;
             if *r#async {
                 Ok((json!({"run":run,"method":method}), 0))
@@ -1808,6 +1978,7 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
         Command::Plan {
             characters,
             selected_assets,
+            sources,
             kind,
             prompt,
             output_dir,
@@ -1825,6 +1996,7 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
                     model.as_deref(),
                     characters.as_slice(),
                     selected_assets.as_slice(),
+                    sources.as_slice(),
                 ),
             )
             .await
@@ -1833,6 +2005,15 @@ pub async fn dispatch(cli: &Cli) -> Result<(Value, u8)> {
 }
 /// Keep reference metadata useful to callers without flooding agent context with pixels.
 /// Complete immutable reference bytes remain in the durable effective-input snapshots.
+/// A run, plus a book-level summary when it contains audiobook chapters.
+pub fn run_value(run: &Run) -> Value {
+    let mut value = json!(run);
+    if let Some(books) = crate::audiobook::run_summary(run) {
+        crate::audiobook::compact(&mut value);
+        value["audiobook"] = books;
+    }
+    value
+}
 pub fn result_view(mut data: Value) -> (Value, Vec<String>) {
     fn trim(value: &mut Value) -> bool {
         match value {
@@ -1860,19 +2041,58 @@ pub fn result_view(mut data: Value) -> (Value, Vec<String>) {
     };
     (data, warnings)
 }
+/// The part of a multi-part artifact a revision regenerates.
+pub enum Target<'a> {
+    Turn(&'a str),
+    Chapter(&'a str),
+}
+/// Append revision direction to a job and every request beneath it, so cached
+/// parts of a long turn or chapter cannot be reused unchanged.
+fn direct(input: &mut Effective, direction: &str) {
+    input.prompt += direction;
+    for child in &mut input.turns {
+        direct(child, direction);
+    }
+}
 pub fn prepare_revision(
     root: &Path,
     artifact: &str,
     instructions: &str,
     replacement: Option<Effective>,
-    target_turn: Option<&str>,
+    target: Option<Target<'_>>,
 ) -> Result<(Run, String)> {
     if instructions.trim().is_empty() {
         return Err(Error::input("Revision requires nonempty instructions"));
     }
-    let (original, job, a) = find_artifact(root, artifact)?;
+    let (original, mut job, a) = find_artifact(root, artifact)?;
     if !original.state.terminal() {
         return Err(Error::input("Wait for the original run before revising"));
+    }
+    // A chapter artifact revises its whole book when the book was assembled in the same run.
+    let mut target_chapter = match &target {
+        Some(Target::Chapter(c)) => Some((*c).to_owned()),
+        _ => None,
+    };
+    if job
+        .input
+        .audiobook
+        .as_ref()
+        .is_some_and(|p| p.role == AudiobookRole::Chapter)
+    {
+        let (book, chapter) = job
+            .input
+            .id
+            .split_once("--")
+            .ok_or_else(|| Error::input("Chapter artifact has no book"))?;
+        if let Some(record) = original.jobs.iter().find(|j| j.input.id == book) {
+            if target_chapter.as_deref().is_some_and(|c| c != chapter) {
+                return Err(Error::input(
+                    "--chapter differs from the chapter of the selected artifact",
+                ));
+            }
+            target_chapter = Some(chapter.to_owned());
+            job = record.clone();
+        }
     }
     let mut input = replacement.unwrap_or_else(|| job.input.clone());
     if input.media != job.input.media
@@ -1884,12 +2104,25 @@ pub fn prepare_revision(
             "Revision source must retain media type, selected provider/model, character identity, and saved voice",
         ));
     }
-    input.id = format!("revision-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+    let audiobook = input.audiobook.is_some();
+    if audiobook {
+        // Keep the book (or chapter) ID: chapter and part IDs must still fit the 64-character limit.
+        input.id = job
+            .input
+            .id
+            .rsplit("--")
+            .next()
+            .unwrap_or(&job.input.id)
+            .to_owned();
+    } else {
+        input.id = format!("revision-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+    }
     input.depends_on.clear();
     input.output = None;
     let direction = format!(
         "\nREVISION DIRECTION (preserve exact scripts, copy, facts, and identity):\n{instructions}"
     );
+    let mut target_turn = None;
     let method = if matches!(input.media, Media::Image | Media::Infographic) {
         input
             .references
@@ -1897,9 +2130,11 @@ pub fn prepare_revision(
         input.prompt += &direction;
         "native_edit"
     } else if input.media == Media::Podcast {
-        let name = target_turn.ok_or_else(|| {
-            Error::input("Podcast revision requires --turn with an ordered turn ID")
-        })?;
+        let Some(Target::Turn(name)) = target else {
+            return Err(Error::input(
+                "Podcast revision requires --turn with an ordered turn ID",
+            ));
+        };
         let turn = input
             .turns
             .iter_mut()
@@ -1919,18 +2154,53 @@ pub fn prepare_revision(
                 "Podcast revision cannot silently change its voice or character",
             ));
         }
-        turn.prompt += &direction;
+        direct(turn, &direction);
+        target_turn = Some(name.to_owned());
         "regenerate_turn_and_assemble"
-    } else {
-        input.prompt += &direction;
-        for chunk in &mut input.turns {
-            chunk.prompt += &direction;
+    } else if input.media == Media::Audiobook {
+        if matches!(target, Some(Target::Turn(_))) {
+            return Err(Error::input("Use --chapter, not --turn, for audiobooks"));
         }
-        "regenerate"
+        let name = target_chapter.ok_or_else(|| {
+            Error::input("Audiobook revision requires --chapter with a chapter ID")
+        })?;
+        let chapter = input
+            .turns
+            .iter_mut()
+            .find(|c| c.id == name)
+            .ok_or_else(|| {
+                Error::input(format!("Chapter `{name}` is not in this audiobook run"))
+            })?;
+        let prior = job
+            .input
+            .turns
+            .iter()
+            .find(|c| c.id == name)
+            .ok_or_else(|| Error::input("Original audiobook chapter not found"))?;
+        if chapter.selection != prior.selection
+            || chapter.character_hash != prior.character_hash
+            || chapter.settings.voice != prior.settings.voice
+        {
+            return Err(Error::input(
+                "Audiobook revision cannot change the narrator voice",
+            ));
+        }
+        direct(chapter, &direction);
+        target_turn = Some(name);
+        "regenerate_chapter_and_assemble"
+    } else {
+        if matches!(target, Some(Target::Turn(_))) || (target.is_some() && !audiobook) {
+            return Err(Error::input(
+                "--turn applies to podcast revisions and --chapter to audiobook revisions",
+            ));
+        }
+        direct(&mut input, &direction);
+        if audiobook {
+            "regenerate_chapter"
+        } else {
+            "regenerate"
+        }
     };
-    if input.media != Media::Podcast && target_turn.is_some() {
-        return Err(Error::input("--turn only applies to podcast revisions"));
-    }
     providers::validate(&input)?;
     engine::reserve(root, &original.budget_group, &original.limits, None, true)?;
     let revision = Revision {
@@ -1938,14 +2208,15 @@ pub fn prepare_revision(
         parent_artifact: a.id.clone(),
         instructions: instructions.into(),
         method: method.into(),
-        target_turn: target_turn.map(str::to_owned),
+        target_turn,
     };
     let run = engine::submit(
         root,
         vec![input.clone()],
         original.limits,
         engine::Submit {
-            fresh: input.media != Media::Podcast,
+            // Unchanged turns and chapters are reused; their fingerprints did not change.
+            fresh: !matches!(input.media, Media::Podcast | Media::Audiobook),
             parent_artifact: Some(a.id),
             budget_group: Some(original.budget_group),
             ..Default::default()
@@ -1972,7 +2243,13 @@ async fn generate(
         .unwrap_or(project::config(root)?.limits);
     validation::limits(&limits)?;
     if ex.dry_run {
-        return Ok((json!({"dry_run":true,"inputs":inputs,"limits":limits}), 0));
+        let budget = engine::audiobook_preflight(root, &inputs, &limits, ex.fresh, None)?.report;
+        let mut view = json!({"dry_run":true,"inputs":inputs,"limits":limits});
+        if let Some(budget) = budget {
+            crate::audiobook::compact(&mut view);
+            view["audiobook_budget"] = budget;
+        }
+        return Ok((view, 0));
     }
     let run = engine::submit(
         root,
@@ -1988,11 +2265,11 @@ async fn generate(
     )?;
     if run.state.terminal() {
         let exit = engine::exit(&run);
-        return Ok((json!(run), exit));
+        return Ok((run_value(&run), exit));
     }
     engine::spawn(root, &run.id, false)?;
     if ex.r#async {
-        Ok((json!(run), 0))
+        Ok((run_value(&run), 0))
     } else {
         wait(cli, root, &run.id, None).await
     }
@@ -2082,7 +2359,7 @@ async fn wait(cli: &Cli, root: &Path, id: &str, timeout: Option<u64>) -> Result<
                 b.finish_with_message(message.clone());
             }
             let exit = engine::exit(&run);
-            return Ok((json!(run), exit));
+            return Ok((run_value(&run), exit));
         }
         if timeout.is_some_and(|seconds| start.elapsed().as_secs() >= seconds) {
             if let Some(b) = bar {
@@ -2334,6 +2611,7 @@ async fn review(root: &Path, action: &ReviewAction) -> Result<(Value, u8)> {
                             depends_on: vec![],
                             output: None,
                             turns: vec![],
+                            audiobook: None,
                         }),
                         false,
                     )
@@ -2433,9 +2711,9 @@ async fn plan(
     prompt: &str,
     dest: &Path,
     provider: Option<Provider>,
-    selected: (Option<&str>, &[PathBuf], &[PathBuf]),
+    selected: (Option<&str>, &[PathBuf], &[PathBuf], &[PathBuf]),
 ) -> Result<(Value, u8)> {
-    let (model, characters, selected_assets) = selected;
+    let (model, characters, selected_assets, sources) = selected;
     if dest.exists() {
         return Err(Error::input(
             "Planning output directory already exists; choose a new reviewable destination",
@@ -2445,9 +2723,10 @@ async fn plan(
     let stage = tempfile::tempdir()?;
     let inventory =
         crate::planning::prepare_inputs(root, stage.path(), characters, selected_assets)?;
+    let inventory = crate::planning::prepare_sources(stage.path(), inventory, sources)?;
     let contract = schema(kind)?;
     let instruction = format!(
-        "Selected inputs (already copied; reference these paths and never author or replace _inputs files): {inventory}. Author a {kind} manifest and companion Markdown files. Return only JSON {{\"files\":[{{\"path\":\"{kind}.yaml\",\"content\":\"...\"}}]}}. Paths must be relative, dependencies inside the bundle. Do not generate media or include credentials. Preserve exact supplied dialogue, lyrics, numeric values. Use explicit configured media choices or null selection; do not invent model IDs or voice bindings. For derived identity assets, use the original asset’s exact provider/model rather than project defaults, and preserve its known hash-bound origin metadata/settings. Never invent an original model or relabel an existing asset to match defaults; conflicting or missing required identity provenance must be resolved before generation. Schema: {}. Config: {}. Templates: {}. User request: {prompt}",
+        "Selected inputs (already copied; reference these paths and never author or replace _inputs files): {inventory}. Author a {kind} manifest and companion Markdown files. Return only JSON {{\"files\":[{{\"path\":\"{kind}.yaml\",\"content\":\"...\"}}]}}. Paths must be relative, dependencies inside the bundle. Do not generate media or include credentials. Preserve exact supplied dialogue, lyrics, numeric values. Use explicit configured media choices or null selection; do not invent model IDs or voice bindings. For derived identity assets, use the original asset’s exact provider/model rather than project defaults, and preserve its known hash-bound origin metadata/settings. Never invent an original model or relabel an existing asset to match defaults; conflicting or missing required identity provenance must be resolved before generation. A request for an audiobook, or to read a book, story or long document aloud, is media audiobook with one narrator (not a podcast, which is a multi-speaker conversation); reference the selected _inputs/sources files as manuscript or chapters[].text_file and never author, summarize, translate or paraphrase narrated text. Schema: {}. Config: {}. Templates: {}. User request: {prompt}",
         serde_json::to_string(&contract)?,
         serde_json::to_string(&project::config(root)?)?,
         serde_json::to_string(assets::TEMPLATES)?
@@ -2466,6 +2745,7 @@ async fn plan(
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     };
     providers::validate(&input)?;
     let run = engine::submit(
