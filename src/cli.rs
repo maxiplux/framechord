@@ -946,6 +946,9 @@ pub fn human_result(data: &Value) -> String {
                 .unwrap_or(0)
                 .div_ceil(60)
         );
+        if let Some(lines) = book["front_matter"]["lines"].as_str() {
+            out += &format!("Front matter skipped: lines {lines}\n");
+        }
         out += &format!(
             "Narrator: {}/{} voice {} ({})\n",
             book["narrator"]["selection"]["provider"]

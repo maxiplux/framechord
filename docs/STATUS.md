@@ -423,8 +423,11 @@ cover splitting rules, exact text, narrator enforcement, schema gates, unchanged
 fingerprints for existing jobs, the preflight, WAV and MP3 books with ID3 chapters
 read back, chapters mode, subsets reused by a later full run, partial failure and
 resume, chapter revision, streamed versus in-memory assembly, pricing, templates,
-planner source containment and the CLI. Native CI results for the LAME build on
-Windows, Linux and macOS are recorded with the pull request. One approved live run
+planner source containment and the CLI. The statically linked LAME build, formatting,
+strict Clippy, the full test suite and the isolated package checks passed natively on
+Windows x86-64, Linux x86-64 and macOS Apple Silicon for commit `1587cff`
+([checks](https://github.com/maxiplux/framechord/actions/runs/39316394373),
+[packages](https://github.com/maxiplux/framechord/actions/runs/39316394369)). One approved live run
 (two Google Gemini TTS requests) produced the guide's two-chapter sample with correct
 ID3 chapters; see [live evidence](LIVE_TESTS.md#audiobook-sample-october-19-2026).
 Narration quality has not been reviewed by a listener, and Fish, ElevenLabs and OpenAI

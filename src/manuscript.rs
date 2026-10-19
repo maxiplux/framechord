@@ -162,6 +162,14 @@ pub fn split(source: &str, options: &Split, max_id: usize) -> Result<SplitReport
             .skip(1)
             .position(|l| matches!(content(l), "---" | "..."))
         {
+            // A leading `---` rule closed by a later scene break would otherwise hide
+            // whole chapters; front matter never contains chapter headings.
+            Some(end) if lines[1..end + 1].iter().any(|l| heading(l).is_some()) => {
+                report.warnings.push(format!(
+                    "Line 1 `---` and line {} enclose # headings, so they are not treated as front matter; the text between them is narrated",
+                    end + 2
+                ));
+            }
             Some(end) => {
                 report.front_matter = Some((1, end + 2));
                 start = end + 2;
@@ -375,6 +383,16 @@ mod tests {
         let unclosed = split("# A\ntext\n~~~~\n# Hidden\n", &opts(1), 40).unwrap();
         assert_eq!(unclosed.chapters.len(), 1);
         assert!(unclosed.warnings.iter().any(|w| w.contains("never closed")));
+        let rule = split("---\n# A\nText\n---\n# B\nMore\n", &opts(1), 40).unwrap();
+        assert!(rule.front_matter.is_none());
+        let ids: Vec<_> = rule.chapters.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, ["preamble", "a", "b"]);
+        assert_eq!(rule.chapters[2].body, "More");
+        assert!(
+            rule.warnings
+                .iter()
+                .any(|w| w.contains("not treated as front matter"))
+        );
         let open_front = split("---\nnot closed\n# A\nText\n", &opts(1), 40).unwrap();
         assert!(open_front.front_matter.is_none());
         assert_eq!(open_front.chapters[0].id, "preamble");
