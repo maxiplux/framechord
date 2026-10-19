@@ -437,3 +437,12 @@ The guide gains a `#audiobooks` section (now 21 sections), a playable two-chapte
 sample in the showcase, a thirteenth delegation prompt and a ninth scenario, and six
 example files (41 in total). `build-site.py --check` and its tests pass; the page was
 checked locally at desktop and phone widths with no console errors.
+
+## 0.8.0 version bump
+
+October 19, 2026. The package version is now `0.8.0`; its main change since 0.7.0 is
+audiobooks (above). The bundled skill copies, command reference and guide stamps were
+regenerated for 0.8.0. A `v0.8.0` tag and the `Publish release` workflow have not
+run yet, so the latest public release, and what installers download, remains 0.7.0
+until that tag is pushed. The model catalog and price table remain dated 2026-10-15
+and have not been re-reviewed for this version.

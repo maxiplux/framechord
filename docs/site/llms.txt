@@ -1,6 +1,6 @@
 # FrameChord
 
-> FrameChord is a local command-line tool, one binary, that turns YAML and Markdown briefs into images, infographics, speech, podcasts, audiobooks, music and sound effects through OpenAI, Google Gemini, Fish Audio, OpenRouter and ElevenLabs. Coding agents such as Claude Code, Codex, Cursor, Gemini CLI, OpenCode and GitHub Copilot drive it through a bundled skill. This file describes FrameChord 0.7.0.
+> FrameChord is a local command-line tool, one binary, that turns YAML and Markdown briefs into images, infographics, speech, podcasts, audiobooks, music and sound effects through OpenAI, Google Gemini, Fish Audio, OpenRouter and ElevenLabs. Coding agents such as Claude Code, Codex, Cursor, Gemini CLI, OpenCode and GitHub Copilot drive it through a bundled skill. This file describes FrameChord 0.8.0.
 
 Before you act for a user:
 

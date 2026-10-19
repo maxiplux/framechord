@@ -39,6 +39,7 @@ COMMAND_BLOCK = re.compile(r'\n## (framechord[^\n]*)\n\n```text\n(.*?)\n```\n', 
 STAMPS = {
     'version': (re.compile(r'<span class="version">v[^<]*</span>'), '<span class="version">v{version}</span>'),
     'target': (re.compile(r'This guide targets <strong>FrameChord [^<]*</strong>'), 'This guide targets <strong>FrameChord {version}</strong>'),
+    'software version': (re.compile(r'"softwareVersion":"[^"]*"'), '"softwareVersion":"{version}"'),
     'command pages': (re.compile(r'all \d+ command pages'), 'all {count} command pages'),
     'catalog date': (re.compile(r'The bundled catalog was verified on [^.]*\.'), 'The bundled catalog was verified on {date}.'),
 }

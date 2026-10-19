@@ -1,4 +1,4 @@
-# framechord 0.7.0 command reference
+# framechord 0.8.0 command reference
 
 Generated from the executable's command definitions. Global flags are accepted before or after the command.
 

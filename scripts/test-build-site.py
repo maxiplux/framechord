@@ -16,7 +16,7 @@ SCRIPT = pathlib.Path(__file__).with_name('build-site.py')
 def fixture_html(entries='', catalog='', version='0.6.2', count=1, date='October 14, 2026', zip_b64='UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='):
     return (
         '<html><body><nav><a href="#commands">x</a><a href="#start">y</a></nav>'
-        f'<span class="version">v{version}</span>'
+        f'<span class="version">v{version}</span><script type="application/ld+json">{{"softwareVersion":"{version}"}}</script>'
         f'<section id="start"><p>The bundled catalog was verified on {date}. More.</p>'
         f'<!-- generated:catalog -->{catalog}<!-- /generated:catalog -->'
         f'<p><a class="button" href="data:application/zip;base64,{zip_b64}" download="framechord-examples.zip">Get</a></p></section>'
@@ -64,6 +64,7 @@ class Generator(unittest.TestCase):
         stamped = self.site['apply_stamps'](text, '0.7.0', 65, 'October 15, 2026')
         self.assertIn('<span class="version">v0.7.0</span>', stamped)
         self.assertIn('FrameChord 0.7.0</strong>', stamped)
+        self.assertIn('"softwareVersion":"0.7.0"', stamped)
         self.assertIn('all 65 command pages', stamped)
         self.assertIn('verified on October 15, 2026.', stamped)
         with self.assertRaisesRegex(ValueError, 'version'):
