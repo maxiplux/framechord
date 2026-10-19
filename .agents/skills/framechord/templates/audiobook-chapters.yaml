@@ -1,0 +1,28 @@
+schema_version: 2
+id: my-book
+media: audiobook
+selection: null
+character: null
+brief: narration.md
+# Explicit, ordered chapters; each text file holds the exact words to read.
+chapters:
+  - id: opening
+    title: Chapter One
+    text_file: chapters/chapter-01.md
+  - id: the-road
+    title: Chapter Two
+    text_file: chapters/chapter-02.md
+    # brief: chapters/chapter-02-direction.md   # optional extra direction, never spoken
+settings:
+  voice: null
+locale: en-US
+assembly:
+  pause_ms: 2000
+  loudness_lufs: -19
+audiobook:
+  output_mode: chapters     # one file per chapter, plus a chapter index
+  format: wav
+  announce_titles: true
+  title: My Book
+  author: Author Name
+depends_on: []

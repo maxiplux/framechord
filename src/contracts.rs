@@ -53,6 +53,7 @@ pub enum Media {
     Infographic,
     Speech,
     Podcast,
+    Audiobook,
     Music,
     Sfx,
     Text,
@@ -379,6 +380,170 @@ pub struct Assembly {
     /// Optional integrated loudness target; peak ceiling is -1 dBFS.
     pub loudness_lufs: Option<f64>,
 }
+/// Published audio container for audiobook chapters and the full book.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioFormat {
+    #[default]
+    Wav,
+    Mp3,
+}
+impl AudioFormat {
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Wav => "wav",
+            Self::Mp3 => "mp3",
+        }
+    }
+}
+/// `chapters` publishes one file per chapter; `full` also publishes the combined book.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputMode {
+    Chapters,
+    #[default]
+    Full,
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EmptyPolicy {
+    #[default]
+    Skip,
+    Error,
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PreamblePolicy {
+    #[default]
+    Include,
+    Skip,
+}
+/// How a Markdown manuscript is divided into chapters. Only ATX headings are boundaries.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Split {
+    #[schemars(range(min = 1, max = 6))]
+    pub heading_level: u8,
+    #[serde(default)]
+    pub empty_chapters: EmptyPolicy,
+    #[serde(default)]
+    pub preamble: PreamblePolicy,
+}
+impl Default for Split {
+    fn default() -> Self {
+        Self {
+            heading_level: 1,
+            empty_chapters: EmptyPolicy::Skip,
+            preamble: PreamblePolicy::Include,
+        }
+    }
+}
+/// One explicitly listed audiobook chapter; its text file holds the exact narrated words.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Chapter {
+    pub id: String,
+    pub title: Option<String>,
+    pub text_file: PathBuf,
+    /// Optional chapter-specific delivery direction; never spoken.
+    pub brief: Option<PathBuf>,
+    #[serde(default)]
+    pub settings: Settings,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AudiobookOptions {
+    #[serde(default)]
+    pub output_mode: OutputMode,
+    #[serde(default)]
+    pub format: AudioFormat,
+    /// Constant MP3 bitrate at the 24 kHz mono working rate: 8, 16, 24, 32, 40, 48, 64, 80,
+    /// 96, 112, 128 or 160 kbps (default 64).
+    pub mp3_bitrate_kbps: Option<u16>,
+    /// Speak each chapter title before its text.
+    #[serde(default)]
+    pub announce_titles: bool,
+    /// Upper bound for one provider request; never above the model's own limit.
+    pub max_chars_per_request: Option<u32>,
+    pub title: Option<String>,
+    pub author: Option<String>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AudiobookRole {
+    Book,
+    Chapter,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChapterInfo {
+    /// One-based position in the complete book, stable across chapter subsets.
+    pub index: u32,
+    pub count: u32,
+    pub title: Option<String>,
+    pub spoken_title: bool,
+    pub source: String,
+    pub text_sha256: String,
+    pub chars: u64,
+}
+/// Resolved audiobook packaging carried by book and chapter jobs, never by provider leaves.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AudiobookPlan {
+    pub role: AudiobookRole,
+    pub output_mode: OutputMode,
+    pub format: AudioFormat,
+    pub mp3_bitrate_kbps: u16,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<ChapterInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected: Option<Vec<String>>,
+}
+/// Sidecar written beside audiobook outputs (`<book>.chapters.json`).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChapterIndex {
+    #[schemars(range(min = 1, max = 1))]
+    pub schema_version: u32,
+    pub book: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub format: AudioFormat,
+    pub output_mode: OutputMode,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub pause_ms: u32,
+    /// Relative path of the combined book, when `output_mode` is `full`.
+    pub full: Option<IndexedFile>,
+    pub chapters: Vec<IndexedChapter>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IndexedFile {
+    pub file: String,
+    pub duration_seconds: f64,
+    pub sha256: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IndexedChapter {
+    pub index: u32,
+    pub id: String,
+    pub title: Option<String>,
+    pub file: String,
+    pub sha256: String,
+    /// Position within the combined book; with `chapters` output it is the
+    /// position the chapter would have with the configured pause.
+    pub start_seconds: f64,
+    pub duration_seconds: f64,
+    pub end_seconds: f64,
+    pub source: String,
+    pub text_sha256: String,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Job {
@@ -407,6 +572,16 @@ pub struct Job {
     #[serde(default)]
     pub depends_on: Vec<String>,
     pub output: Option<PathBuf>,
+    /// Audiobook source: one Markdown manuscript split at headings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manuscript: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split: Option<Split>,
+    /// Audiobook source: explicit ordered chapters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chapters: Vec<Chapter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audiobook: Option<AudiobookOptions>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -451,6 +626,8 @@ pub struct Effective {
     pub output: Option<PathBuf>,
     #[serde(default)]
     pub turns: Vec<Effective>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audiobook: Option<AudiobookPlan>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

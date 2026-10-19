@@ -91,6 +91,7 @@ fn legacy_run_receipts_remain_readable_and_are_not_rewritten() {
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     };
     // Local durable submission only; no worker or provider calls.
     let run = engine::submit(

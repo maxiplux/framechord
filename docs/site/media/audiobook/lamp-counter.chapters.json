@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "book": "lamp-counter",
+  "title": "The Lamp Counter",
+  "author": "FrameChord guide",
+  "format": "mp3",
+  "output_mode": "full",
+  "sample_rate": 24000,
+  "channels": 1,
+  "pause_ms": 1500,
+  "full": {
+    "file": "lamp-counter.mp3",
+    "duration_seconds": 60.02,
+    "sha256": "333c280fffdd48457a84504fee3ab1c4f0644c0c52fdc736701477ae375e2c0c"
+  },
+  "chapters": [
+    {
+      "index": 1,
+      "id": "chapter-one-the-platform",
+      "title": "Chapter One: The Platform",
+      "file": "chapter-01-chapter-one-the-platform.mp3",
+      "sha256": "60d777391e500f118f711b04fd80803f54157d86e7b513816e13d692466e6fd6",
+      "start_seconds": 0.0,
+      "duration_seconds": 28.04,
+      "end_seconds": 28.04,
+      "source": "audiobook-manuscript.md:6-11",
+      "text_sha256": "184ddd6e419dc6a49a8d4213d2680b7f70e549bb8ca265a29090698f92dcea3b"
+    },
+    {
+      "index": 2,
+      "id": "chapter-two-the-late-train",
+      "title": "Chapter Two: The Late Train",
+      "file": "chapter-02-chapter-two-the-late-train.mp3",
+      "sha256": "f97396871702f81cd2f90c2a8d8a256c050df06002bf99633ba37cbcd86badd7",
+      "start_seconds": 29.54,
+      "duration_seconds": 30.48,
+      "end_seconds": 60.02,
+      "source": "audiobook-manuscript.md:12-18",
+      "text_sha256": "13595b44018bcfe2b62eb664d2fe98fbd4d71e314e9bd92d17c96d63af549a6d"
+    }
+  ],
+  "warnings": []
+}

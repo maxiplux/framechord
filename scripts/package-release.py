@@ -184,6 +184,8 @@ with tempfile.TemporaryDirectory(prefix='framechord-archive-') as temporary:
     shutil.copy2(binary, staged / executable)
     (staged / '.env.example').write_text(''.join(f'{key}=\n' for key in credentials))
     (staged / 'verification.json').write_text(json.dumps(metadata, indent=2) + '\n')
+    # LGPL notice for the statically linked LAME MP3 encoder; `framechord notices` prints the same text.
+    shutil.copy2(root / 'assets/THIRD_PARTY_NOTICES.md', staged / 'THIRD_PARTY_NOTICES.md')
     (staged / 'README.md').write_text(f'''# framechord {version}
 
 Native binary for `{host}`. From the download folder, run `./{executable} install` to install in your user bin directory without administrator access. Open a new terminal afterwards. Installation does not initialize a project or copy provider keys.
@@ -203,7 +205,9 @@ Initialization is offline and preserves existing files. The binary embeds the ma
 
 Copy `.env.example` to your target project's `.env` and fill only the selected provider's credential, or use its process environment variable. Choose explicit provider/model/input/output settings before generation. Existing process values take precedence. No development credentials, generated media, or canonical characters are included in this package.
 
-Images, infographics, speech, podcasts, music, sound effects, optional characters, concurrent jobs, budgets/cache/recovery, image reviews, and explicit ElevenLabs voice preview/create/bind workflows are available. Preview candidates need selection. Consent-gated ElevenLabs recorded-voice cloning, Fish audio-reference synthesis, Google audio review, and Google saved-interaction reconciliation are implemented with their documented boundaries; recording workflows have mocked coverage and require authorized samples for live verification. Offline initialization saves models/settings/voices/limits; original identity assets pin their recorded provider/model. Visual likeness remains subject to human acceptance. Video generation is excluded.
+Images, infographics, speech, podcasts, audiobooks (per chapter or full book, WAV or MP3), music, sound effects, optional characters, concurrent jobs, budgets/cache/recovery, image reviews, and explicit ElevenLabs voice preview/create/bind workflows are available. Preview candidates need selection. Consent-gated ElevenLabs recorded-voice cloning, Fish audio-reference synthesis, Google audio review, and Google saved-interaction reconciliation are implemented with their documented boundaries; recording workflows have mocked coverage and require authorized samples for live verification. Offline initialization saves models/settings/voices/limits; original identity assets pin their recorded provider/model. Visual likeness remains subject to human acceptance. Video generation is excluded.
+
+MP3 encoding uses the LAME library, statically linked under the LGPL; see `THIRD_PARTY_NOTICES.md` (also printed by `framechord notices`) for licenses, source and relinking.
 
 `verification.json` records the binary hash and native offline checks. The packager does not publish; public availability is recorded on the GitHub Releases page. Binaries are not signed or notarized. Other platform packages require their own native build and verification. No provider generation is performed by the packager.
 ''')
@@ -214,13 +218,13 @@ Images, infographics, speech, podcasts, music, sound effects, optional character
                 bundle.write(file, f'{name}/{file.name}')
         with zipfile.ZipFile(archive) as bundle:
             assert bundle.testzip() is None
-            assert len(bundle.namelist()) == 4
+            assert len(bundle.namelist()) == 5
     else:
         archive = destination / f'{name}.tar.gz'
         with tarfile.open(archive, 'w:gz') as bundle:
             bundle.add(staged, arcname=name)
         with tarfile.open(archive) as bundle:
-            assert len(bundle.getmembers()) == 5
+            assert len(bundle.getmembers()) == 6
             member = bundle.extractfile(f'{name}/{executable}')
             assert hashlib.sha256(member.read()).hexdigest() == metadata['binary_sha256']
 # Raw release assets avoid extraction tools in installers and the built-in updater.

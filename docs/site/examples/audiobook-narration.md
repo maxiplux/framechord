@@ -1,0 +1,1 @@
+Read as an audiobook narrator: warm, unhurried and clear. Let each sentence finish and pause briefly at paragraph breaks. Give the conductor's single line a light, amused lift without a character voice.

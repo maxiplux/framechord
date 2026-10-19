@@ -14,6 +14,8 @@ Infographics: fill infographic.yaml plus infographic.md. Supply exact title, aud
 
 Speech: script.md contains only exact spoken words. Voice/delivery direction belongs in the brief/profile, not embedded commentary in the script. For articles, read the supplied local text; there is no URL fetching. Podcast jobs contain ordered turns, each with text_file, optional character, selection, and settings. Original turn clips and a mono 24kHz PCM16 combined WAV are retained.
 
+Audiobooks: one narrator reads exact source text. Either point `manuscript` at one Markdown file and set `split.heading_level` (chapters start at `#` headings at or above that level, outside code fences; YAML front matter is skipped), or list `chapters` with an `id`, optional `title`, and `text_file` each. Use the `audiobook.yaml` or `audiobook-chapters.yaml` template. Headings are not read unless `audiobook.announce_titles` is true. Put delivery direction in `brief` (never spoken). The narrator comes from `character`, `selection`, or the audiobook/speech default; chapters cannot change it. See [audiobooks](audiobooks.md).
+
 Music: define use, genre, tempo, instruments, mood, duration, instrumental/vocal choice; quote requested lyrics exactly. The singer is not guaranteed to match a character's speaking voice. SFX: source/event, texture, environment, timing, duration, and exclusions. Set explicit bounded duration for both. Choose `--instrumental` or `--vocal` for music; they are mutually exclusive. Long OpenAI and supported ElevenLabs speech is split at documented model limits without changing script content and assembled natively into WAV.
 
 Initialization can configure the complete authoring baseline before creating the

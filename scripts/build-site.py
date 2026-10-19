@@ -487,7 +487,7 @@ def render_llms(page, version, command_count):
         '# FrameChord',
         '',
         '> FrameChord is a local command-line tool, one binary, that turns YAML and Markdown briefs into images, '
-        'infographics, speech, podcasts, music and sound effects through OpenAI, Google Gemini, Fish Audio, '
+        'infographics, speech, podcasts, audiobooks, music and sound effects through OpenAI, Google Gemini, Fish Audio, '
         'OpenRouter and ElevenLabs. Coding agents such as Claude Code, Codex, Cursor, Gemini CLI, OpenCode and '
         f'GitHub Copilot drive it through a bundled skill. This file describes FrameChord {version}.',
         '',
@@ -507,6 +507,9 @@ def render_llms(page, version, command_count):
         '- Pass `--json --non-interactive`. Keep scripts, lyrics and figures exact. Do not switch provider, model '
         'or voice unless asked. Get fresh approval before resuming a stopped run or batch, and never retry an '
         'uncertain paid request without explicit approval.',
+        '- A request for an audiobook, or to read a book or long document aloud, is `media: audiobook`: one '
+        'narrator, the exact source text, one file per chapter and optionally the full book. A podcast is a '
+        'multi-speaker conversation; do not turn a book into one unless the user asks.',
         '',
         '## Guide',
         '',

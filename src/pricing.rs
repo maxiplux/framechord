@@ -504,8 +504,9 @@ fn estimate_text(table: &Table, job: &JobRecord) -> Estimate {
 /// media-specific rule. Nothing here reads or writes run records.
 pub fn estimate_job(table: &Table, job: &JobRecord) -> Estimate {
     if !job.input.turns.is_empty() {
-        // The engine expands podcast turns into their own jobs (`parent--turn`), each
-        // priced on its own row; the parent makes no provider request.
+        // The engine expands podcast turns, audiobook chapters and speech parts into
+        // their own jobs (`parent--child`), each priced on its own row; parents make
+        // no provider request.
         return Estimate::AssembledLocally;
     }
     if job.cached {
@@ -573,7 +574,7 @@ pub fn job_fields(table: &Table, job: &JobRecord) -> (Value, &'static str, Strin
         Estimate::AssembledLocally => (
             Value::Null,
             "not_estimated",
-            "Local assembly of turn clips; each turn is priced as its own job.".into(),
+            "Local assembly (podcast turns, audiobook chapters, long-speech parts); each provider request is priced as its own job.".into(),
         ),
         Estimate::NotEstimable(reason) => (
             Value::Null,

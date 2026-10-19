@@ -30,6 +30,7 @@ fn input(id: &str, media: Media, provider: Provider, model: &str, text: Option<&
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     }
 }
 fn artifact(

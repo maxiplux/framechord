@@ -11,10 +11,13 @@ project root .env or process environment. Never commit keys.
 cast.yaml needs your own mira/kito characters with accepted compatible originals.
 project-config.yaml contains editable defaults. Read and choose them before init.
 The podcast contains two speech requests; the batch contains an image and speech.
+The audiobook makes one speech request per chapter (two) and assembles locally.
 The sample schedule and original lyrics are illustrative authoring content.
 
 SCENARIO PACKS
 podcast-kit.yaml: artwork, two-speaker episode and separate intro music.
+audiobook.yaml: a two-chapter audiobook from manuscript.md, one narrator, MP3 book
+  with chapter markers; audiobook-chapters.yaml lists chapter files instead.
 lesson-kit.yaml: structured schedule infographic and matching narration.
 app-kit.yaml: an app empty-state illustration and notification sound.
 bilingual.yaml: separately authored English and Spanish narration scripts.

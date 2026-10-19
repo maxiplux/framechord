@@ -1,0 +1,17 @@
+schema_version: 2
+id: lamp-counter-chapters
+media: audiobook
+brief: audiobook-narration.md
+chapters:
+  - id: platform
+    title: "Chapter One: The Platform"
+    text_file: chapter-01.md
+  - id: late-train
+    title: "Chapter Two: The Late Train"
+    text_file: chapter-02.md
+locale: en-US
+assembly: {loudness_lufs: -19}
+audiobook:
+  output_mode: chapters
+  format: wav
+  announce_titles: true

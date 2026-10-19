@@ -19,6 +19,7 @@ Commands:
   storage    Inspect storage or apply a previously reviewed conservative cleanup plan
   migrate    Preview migration of a v1 job, config or run; --apply creates a non-overwriting backup
   doctor     Inspect credentials offline, or explicitly check all provider endpoints and keys with --live
+  notices    Print third-party license notices for components bundled in this binary
   schema     Print a JSON Schema for a versioned manifest
   models     List implemented provider/model capabilities (not account entitlements)
   voices     List built-in voices or search bounded pages of provider account voices
@@ -1076,6 +1077,42 @@ Options:
 
 ```
 
+## framechord notices
+
+```text
+Print third-party license notices for components bundled in this binary
+
+Usage: framechord notices [OPTIONS]
+
+Options:
+      --project <PROJECT>
+          Target project root; credentials are loaded only from this root's .env
+
+          [default: .]
+
+      --json
+          Emit a structured JSON result; diagnostics stay on stderr, with no animation
+
+      --non-interactive
+          Never prompt; supply YAML files or explicit flags for automation
+
+      --progress <PROGRESS>
+          Terminal progress mode; redirected auto progress uses plain stage updates
+
+          [default: auto]
+          [possible values: auto, plain, off]
+
+      --color <COLOR>
+          Terminal colors; auto honors NO_COLOR
+
+          [default: auto]
+          [possible values: auto, always, never]
+
+  -h, --help
+          Print help
+
+```
+
 ## framechord schema
 
 ```text
@@ -1085,7 +1122,7 @@ Usage: framechord schema [OPTIONS] <KIND>
 
 Arguments:
   <KIND>
-          [possible values: config, character, infographic, job, batch, run, artifact, review, effective, budget, revision, operation, voice_design, voice_consent, voice_clone, host_limits, diagnostics, verification]
+          [possible values: config, character, infographic, job, batch, run, artifact, review, effective, budget, revision, operation, voice_design, voice_consent, voice_clone, host_limits, diagnostics, verification, chapters]
 
 Options:
       --project <PROJECT>
@@ -1141,7 +1178,7 @@ Options:
       --media <MEDIA>
           Filter by generation purpose (infographic uses image; podcast uses speech)
 
-          [possible values: image, infographic, speech, podcast, music, sfx, text]
+          [possible values: image, infographic, speech, podcast, audiobook, music, sfx, text]
 
       --non-interactive
           Never prompt; supply YAML files or explicit flags for automation
@@ -2286,7 +2323,7 @@ Usage: framechord generate [OPTIONS] [MEDIA]
 
 Arguments:
   [MEDIA]
-          [possible values: image, infographic, speech, podcast, music, sfx, text]
+          [possible values: image, infographic, speech, podcast, audiobook, music, sfx, text]
 
 Options:
       --job <JOB>
@@ -2297,19 +2334,22 @@ Options:
 
           [default: .]
 
-      --identity-reference <IDENTITY_REFERENCE>
-          Preserve referenced character identities; repeat for multiple selected characters
+      --chapter <CHAPTERS>
+          Audiobook only: generate just these chapter IDs (repeatable); a later run without it assembles the book
 
       --json
           Emit a structured JSON result; diagnostics stay on stderr, with no animation
+
+      --identity-reference <IDENTITY_REFERENCE>
+          Preserve referenced character identities; repeat for multiple selected characters
+
+      --non-interactive
+          Never prompt; supply YAML files or explicit flags for automation
 
       --input-fidelity <INPUT_FIDELITY>
           Historical image-edit fidelity field; omit for current GPT Image 2.5 models
 
           [possible values: high, low]
-
-      --non-interactive
-          Never prompt; supply YAML files or explicit flags for automation
 
       --progress <PROGRESS>
           Terminal progress mode; redirected auto progress uses plain stage updates
@@ -2317,14 +2357,14 @@ Options:
           [default: auto]
           [possible values: auto, plain, off]
 
-      --voice-sample <VOICE_SAMPLE>
-          Authorized audio sample for Fish reference synthesis or voice review evidence
-
       --color <COLOR>
           Terminal colors; auto honors NO_COLOR
 
           [default: auto]
           [possible values: auto, always, never]
+
+      --voice-sample <VOICE_SAMPLE>
+          Authorized audio sample for Fish reference synthesis or voice review evidence
 
       --sample-transcript <SAMPLE_TRANSCRIPT>
           Exact transcript of --voice-sample
@@ -3302,14 +3342,17 @@ Options:
       --turn <TURN>
           Revise one podcast turn and reuse verified unchanged clips
 
-      --async
-
+      --chapter <CHAPTER>
+          Revise one audiobook chapter, reuse unchanged chapters, and reassemble the book
 
       --color <COLOR>
           Terminal colors; auto honors NO_COLOR
 
           [default: auto]
           [possible values: auto, always, never]
+
+      --async
+
 
   -h, --help
           Print help
@@ -3361,6 +3404,9 @@ Options:
 
           [default: auto]
           [possible values: auto, always, never]
+
+      --source <SOURCES>
+          Exact source text (Markdown or plain text, such as a book manuscript) copied into the bundle; only its path, size and hash are sent to the planner
 
       --provider <PROVIDER>
           [possible values: openai, google, fish, openrouter, elevenlabs]
@@ -3555,6 +3601,7 @@ Commands:
   storage    Inspect storage or apply a previously reviewed conservative cleanup plan
   migrate    Preview migration of a v1 job, config or run; --apply creates a non-overwriting backup
   doctor     Inspect credentials offline, or explicitly check all provider endpoints and keys with --live
+  notices    Print third-party license notices for components bundled in this binary
   schema     Print a JSON Schema for a versioned manifest
   models     List implemented provider/model capabilities (not account entitlements)
   voices     List built-in voices or search bounded pages of provider account voices
@@ -3759,6 +3806,15 @@ Usage: framechord help migrate
 Inspect credentials offline, or explicitly check all provider endpoints and keys with --live
 
 Usage: framechord help doctor
+
+```
+
+## framechord help notices
+
+```text
+Print third-party license notices for components bundled in this binary
+
+Usage: framechord help notices
 
 ```
 

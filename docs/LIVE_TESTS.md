@@ -162,3 +162,26 @@ estimate of about $0.37 (image output tokens and the song); Gemini TTS returned 
 total tokens and is not estimable. Human listening and acceptance of final quality
 remain pending. Per-asset hashes, usage and reviews are in
 `docs/site/media/provenance.json`.
+
+## Audiobook sample (October 19, 2026)
+
+One explicitly approved live run of the new `media: audiobook` job,
+`docs/site/media/jobs/audiobook.yaml`, built from branch `feature/audiobook` (binary
+version still `0.7.0`): Google `gemini-3.8-flash-tts`, voice `Charon`, en-US, a
+two-chapter manuscript of 759 narrated characters with spoken chapter titles, MP3 at
+64 kbps, `output_mode: full`. The whole-book preflight reported 2 requests and 759
+speech characters within the default limits before the run started.
+
+Run `9ad83451-d230-4013-8005-d5e6b68be5fe` succeeded with two provider requests, one
+per chapter, and no retries. Gemini returned only total tokens (785 and 854), so
+`usage` reports both chapter requests as `not_estimable` and the chapter and book
+assembly jobs as `not_estimated`; at the dated rate of $0.00225 per 10 s the audio is
+about $0.0135 at list price. Results: chapter WAV durations 28.04 s and 30.48 s, a
+1.5 s pause, and a 60.02 s full book (`lamp-counter.mp3`, 480,966 bytes,
+SHA-256 `333c280f…5e2c0c`). `ffprobe` reads two ID3 chapters at 0.000–28.040 s and
+29.540–60.020 s, matching `lamp-counter.chapters.json`; the cue sheet places track 2
+at `00:29:41`. The files are published unchanged under `docs/site/media/audiobook/`.
+
+This verifies the live request, local assembly, MP3 encoding and chapter metadata on
+macOS. It does not verify narration quality, pronunciation or that every word was
+read: no AI audio review was run and nobody has listened to the result yet.

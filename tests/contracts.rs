@@ -49,6 +49,7 @@ fn input(name: &str) -> Effective {
         depends_on: vec![],
         output: None,
         turns: vec![],
+        audiobook: None,
     }
 }
 struct Fake {
@@ -792,6 +793,10 @@ fn accepted_identity_is_reused_and_overrides_unrelated_project_defaults() {
         locale: None,
         depends_on: vec![],
         output: None,
+        manuscript: None,
+        split: None,
+        chapters: vec![],
+        audiobook: None,
     };
     let effective = validation::resolve(&job, t.path(), &cfg).unwrap();
     assert_eq!(effective.selection.provider, Provider::Openai);
@@ -912,7 +917,7 @@ async fn podcast_revision_regenerates_only_the_selected_turn() {
         &combined.id,
         "A warmer delivery.",
         None,
-        Some("bob"),
+        Some(framechord::cli::Target::Turn("bob")),
     )
     .unwrap();
     assert_eq!(method, "regenerate_turn_and_assemble");
@@ -1040,6 +1045,10 @@ async fn long_speech_is_split_exactly_and_assembled_with_no_parent_provider_call
         locale: None,
         depends_on: vec![],
         output: None,
+        manuscript: None,
+        split: None,
+        chapters: vec![],
+        audiobook: None,
     };
     let effective = validation::resolve(&job, t.path(), &Config::default()).unwrap();
     assert!(effective.turns.len() > 1);

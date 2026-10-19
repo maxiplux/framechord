@@ -253,7 +253,9 @@ pub fn valid_image_size(model: &str, size: &str) -> bool {
         && (655360..=8294400).contains(&(w * h))
 }
 pub fn validate(e: &Effective) -> Result<()> {
-    if e.media == Media::Podcast || (e.media == Media::Speech && !e.turns.is_empty()) {
+    if matches!(e.media, Media::Podcast | Media::Audiobook)
+        || (e.media == Media::Speech && !e.turns.is_empty())
+    {
         for t in &e.turns {
             validate(t)?;
         }
@@ -1719,6 +1721,7 @@ mod tests {
             depends_on: vec![],
             output: None,
             turns: vec![],
+            audiobook: None,
         }
     }
     fn fixture(status: u16, body: Value) -> Arc<Fixture> {

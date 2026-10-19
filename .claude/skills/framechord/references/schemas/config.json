@@ -171,6 +171,9 @@
     "default_locales": {
       "additionalProperties": false,
       "properties": {
+        "audiobook": {
+          "type": "string"
+        },
         "image": {
           "type": "string"
         },
@@ -198,6 +201,9 @@
     "default_settings": {
       "additionalProperties": false,
       "properties": {
+        "audiobook": {
+          "$ref": "#/$defs/Settings"
+        },
         "image": {
           "$ref": "#/$defs/Settings"
         },
@@ -226,6 +232,9 @@
       "additionalProperties": false,
       "default": {},
       "properties": {
+        "audiobook": {
+          "$ref": "#/$defs/Selection"
+        },
         "image": {
           "$ref": "#/$defs/Selection"
         },

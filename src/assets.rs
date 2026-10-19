@@ -87,6 +87,30 @@ pub const TEMPLATES: &[(&str, &str)] = &[
         include_str!("../assets/templates/podcast.yaml"),
     ),
     (
+        "audiobook.yaml",
+        include_str!("../assets/templates/audiobook.yaml"),
+    ),
+    (
+        "audiobook-chapters.yaml",
+        include_str!("../assets/templates/audiobook-chapters.yaml"),
+    ),
+    (
+        "manuscript.md",
+        include_str!("../assets/templates/manuscript.md"),
+    ),
+    (
+        "narration.md",
+        include_str!("../assets/templates/narration.md"),
+    ),
+    (
+        "chapters/chapter-01.md",
+        include_str!("../assets/templates/chapters/chapter-01.md"),
+    ),
+    (
+        "chapters/chapter-02.md",
+        include_str!("../assets/templates/chapters/chapter-02.md"),
+    ),
+    (
         "examples/narrator/character.yaml",
         include_str!("../assets/templates/examples/narrator/character.yaml"),
     ),
@@ -180,6 +204,10 @@ pub fn skill_with(path: &Path, overwrite: bool) -> Result<Vec<String>> {
         (
             "references/voices.md",
             include_str!("../assets/skill/references/voices.md").to_owned(),
+        ),
+        (
+            "references/audiobooks.md",
+            include_str!("../assets/skill/references/audiobooks.md").to_owned(),
         ),
         (
             "references/consistency.md",

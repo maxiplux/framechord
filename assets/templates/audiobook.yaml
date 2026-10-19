@@ -1,0 +1,36 @@
+schema_version: 2
+id: my-book
+media: audiobook
+# One narrator for the whole book. Use a character with an accepted voice,
+# an explicit selection, or the project's audiobook/speech default.
+selection: null
+character: null
+# Delivery direction for every chapter; never spoken. Omit for Fish and
+# ElevenLabs saved voices, which do not accept delivery instructions.
+brief: narration.md
+# The exact words to read. Chapters start at headings of this level or above;
+# headings themselves are not read unless announce_titles is true.
+manuscript: manuscript.md
+split:
+  heading_level: 1
+  empty_chapters: skip      # skip | error, for headings with no text
+  preamble: include         # include | skip, for text before the first heading
+settings:
+  voice: null               # null uses the configured default voice
+locale: en-US
+assembly:
+  pause_ms: 2000            # silence between chapters in the full book
+  loudness_lufs: -19        # per-chapter loudness target; peaks stay at or below -1 dBFS
+audiobook:
+  output_mode: full         # chapters: one file per chapter; full: chapters plus the whole book
+  format: mp3               # wav or mp3 (24 kHz mono; MP3 is constant bitrate)
+  mp3_bitrate_kbps: 64
+  announce_titles: true
+  title: My Book
+  author: Author Name
+depends_on: []
+
+# Validate first and read the chapter table, warnings and budget:
+#   framechord validate --kind job framechord/jobs/my-book/job.yaml
+# A whole book usually exceeds the default run limits. Raise limits only with
+# the user's approval, or produce a few chapters per run with --chapter.
