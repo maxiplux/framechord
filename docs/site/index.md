@@ -2,7 +2,7 @@
 
 # FrameChord: AI media CLI for images, speech, podcasts, audiobooks and music
 
-> Markdown version of https://framechord.com/ for FrameChord 0.7.0, for agents and readers without a browser. The short index for agents is https://framechord.com/llms.txt. Media paths are relative to https://framechord.com/.
+> Markdown version of https://framechord.com/ for FrameChord 0.8.0, for agents and readers without a browser. The short index for agents is https://framechord.com/llms.txt. Media paths are relative to https://framechord.com/.
 
 ## Contents
 
@@ -2330,7 +2330,7 @@ framechord config show --json
 - [Every command & flag](#commands): Generated from the bundled CLI help →
 - [Download the examples](https://github.com/maxiplux/framechord/tree/master/docs/site/examples): YAML, Markdown and exact scripts →
 
-This guide targets **FrameChord 0.7.0**. Video generation is outside this version. Provider adapters implement different capabilities; inspect `models --json` before selecting a model. Live model discovery is read-only and does not prove generation readiness.
+This guide targets **FrameChord 0.8.0**. Video generation is outside this version. Provider adapters implement different capabilities; inspect `models --json` before selecting a model. Live model discovery is read-only and does not prove generation readiness.
 
 <a id="commands"></a>
 
