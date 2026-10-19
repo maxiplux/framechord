@@ -1029,7 +1029,7 @@
       "cost_status": "not_estimated",
       "list_price_estimate": null,
       "ai_review": null,
-      "selection_note": "Generated with FrameChord 0.7.0 plus the unreleased audiobook feature (branch feature/audiobook) on 2026-10-19: two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
+      "selection_note": "Generated on 2026-10-19 with the audiobook feature released in FrameChord 0.8.0 (a pre-release build from branch feature/audiobook that still reported version 0.7.0): two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
       "cost_note": "Each Gemini TTS chapter request is not_estimable because only total tokens were returned (785 and 854); at the dated rate of $0.00225 per 10 s, 60 s of audio is about $0.0135 at list price."
     },
     {
@@ -1053,7 +1053,7 @@
       "cost_status": "not_estimated",
       "list_price_estimate": null,
       "ai_review": null,
-      "selection_note": "Generated with FrameChord 0.7.0 plus the unreleased audiobook feature (branch feature/audiobook) on 2026-10-19: two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
+      "selection_note": "Generated on 2026-10-19 with the audiobook feature released in FrameChord 0.8.0 (a pre-release build from branch feature/audiobook that still reported version 0.7.0): two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
       "cost_note": "Each Gemini TTS chapter request is not_estimable because only total tokens were returned (785 and 854); at the dated rate of $0.00225 per 10 s, 60 s of audio is about $0.0135 at list price."
     },
     {
@@ -1077,7 +1077,7 @@
       "cost_status": "not_estimated",
       "list_price_estimate": null,
       "ai_review": null,
-      "selection_note": "Generated with FrameChord 0.7.0 plus the unreleased audiobook feature (branch feature/audiobook) on 2026-10-19: two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
+      "selection_note": "Generated on 2026-10-19 with the audiobook feature released in FrameChord 0.8.0 (a pre-release build from branch feature/audiobook that still reported version 0.7.0): two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
       "cost_note": "Each Gemini TTS chapter request is not_estimable because only total tokens were returned (785 and 854); at the dated rate of $0.00225 per 10 s, 60 s of audio is about $0.0135 at list price."
     },
     {
@@ -1101,7 +1101,7 @@
       "cost_status": "not_estimated",
       "list_price_estimate": null,
       "ai_review": null,
-      "selection_note": "Generated with FrameChord 0.7.0 plus the unreleased audiobook feature (branch feature/audiobook) on 2026-10-19: two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
+      "selection_note": "Generated on 2026-10-19 with the audiobook feature released in FrameChord 0.8.0 (a pre-release build from branch feature/audiobook that still reported version 0.7.0): two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
       "cost_note": "Each Gemini TTS chapter request is not_estimable because only total tokens were returned (785 and 854); at the dated rate of $0.00225 per 10 s, 60 s of audio is about $0.0135 at list price."
     },
     {
@@ -1132,7 +1132,7 @@
       "cost_status": "not_estimated",
       "list_price_estimate": null,
       "ai_review": null,
-      "selection_note": "Generated with FrameChord 0.7.0 plus the unreleased audiobook feature (branch feature/audiobook) on 2026-10-19: two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
+      "selection_note": "Generated on 2026-10-19 with the audiobook feature released in FrameChord 0.8.0 (a pre-release build from branch feature/audiobook that still reported version 0.7.0): two Gemini TTS requests, one per chapter, assembled locally and encoded as 64 kbps CBR MP3 with ID3 chapter frames. Published byte-for-byte as generated.",
       "cost_note": "Each Gemini TTS chapter request is not_estimable because only total tokens were returned (785 and 854); at the dated rate of $0.00225 per 10 s, 60 s of audio is about $0.0135 at list price."
     }
   ]
