@@ -298,7 +298,11 @@ pub fn resolve(
         });
         chapters.push(chapter);
     }
-    let first = &chapters[0];
+    let Some(first) = chapters.first() else {
+        return Err(Error::input(
+            "Audiobook has no chapters with narratable text",
+        ));
+    };
     let identity = |c: &Effective| {
         let mut refs: Vec<_> = c.references.iter().map(|r| r.sha256.clone()).collect();
         refs.sort();

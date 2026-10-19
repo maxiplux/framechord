@@ -1,6 +1,13 @@
 use crate::error::{Error, Result};
 use rubato::{FftFixedInOut, Resampler};
 use std::io::Cursor;
+
+/// Working rate for speech assembly and every published audiobook file.
+pub const RATE: u32 = 24000;
+/// Samples per millisecond of silence at the working rate.
+pub fn pause_samples(ms: u32) -> usize {
+    ms as usize * (RATE as usize / 1000)
+}
 use symphonia::core::{
     audio::SampleBuffer, codecs::DecoderOptions, formats::FormatOptions, io::MediaSourceStream,
     meta::MetadataOptions, probe::Hint,
@@ -151,7 +158,7 @@ pub fn assemble(
         if i > 0
             && let Some(a) = options
         {
-            out.resize(out.len() + a.pause_ms as usize * 24, 0.0);
+            out.resize(out.len() + pause_samples(a.pause_ms), 0.0);
         }
         let gain = options
             .and_then(|a| a.turn_gain_db.get(id))
@@ -181,8 +188,6 @@ pub fn assemble(
     Ok(out)
 }
 
-/// Working rate for speech assembly and every published audiobook file.
-pub const RATE: u32 = 24000;
 const WAV_HEADER: u64 = 44;
 
 fn sample(value: f32) -> i16 {
@@ -455,7 +460,7 @@ pub fn assemble_files(
     let fail = |_| Error::new("loudness", "Cannot measure integrated audio loudness", 3);
     let mut meter = ebur128::EbuR128::new(1, RATE, ebur128::Mode::I).map_err(fail)?;
     let mut peak = 0.0_f32;
-    let pause = vec![0.0_f32; pause_ms as usize * 24];
+    let pause = vec![0.0_f32; pause_samples(pause_ms)];
     for (i, clip) in clips.iter().enumerate() {
         if i > 0 && !pause.is_empty() {
             meter.add_frames_f32(&pause).map_err(fail)?;
@@ -508,7 +513,7 @@ pub fn concat_files(
             return Err(Error::new("cancelled", "Assembly cancelled", 3));
         }
         if i > 0 {
-            writer.silence(pause_ms as usize * 24)?;
+            writer.silence(pause_samples(pause_ms))?;
         }
         lengths.push(stream(clip, |block| writer.write(block))?);
     }

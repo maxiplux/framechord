@@ -197,7 +197,10 @@ fn chapter(dir: &Path, run: &Run, job: &mut JobRecord, cancelled: &dyn Fn() -> b
 /// Path written into the chapter index: a bare file name beside the index, else absolute.
 fn reference(path: &Path, index: &Path) -> String {
     if path.parent() == index.parent() {
-        path.file_name().unwrap().to_string_lossy().into_owned()
+        path.file_name().map_or_else(
+            || path.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        )
     } else {
         path.display().to_string()
     }
@@ -220,7 +223,7 @@ fn book(dir: &Path, run: &Run, job: &mut JobRecord, cancelled: &dyn Fn() -> bool
     let plan = job.input.audiobook.clone().unwrap();
     let id = job.input.id.clone();
     let pause_ms = job.input.assembly.as_ref().map_or(0, |a| a.pause_ms);
-    let pause = pause_ms as u64 * 24;
+    let pause = audio::pause_samples(pause_ms) as u64;
     let full = plan.output_mode == OutputMode::Full;
     let ext = plan.format.extension();
     // Final locations decide the relative paths written into the index.
@@ -321,7 +324,7 @@ fn book(dir: &Path, run: &Run, job: &mut JobRecord, cancelled: &dyn Fn() -> bool
             }
             cue += &format!(
                 "FILE \"{}\" {}\n",
-                quoted(&audio_path.file_name().unwrap().to_string_lossy()),
+                quoted(&reference(&audio_path, &index_path)),
                 if plan.format == AudioFormat::Mp3 {
                     "MP3"
                 } else {
