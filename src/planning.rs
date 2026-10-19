@@ -122,14 +122,16 @@ pub fn stage(content: &str, kind: &str, directory: &Path, config: &Config) -> Re
                     dependency(&root, base, path)?;
                 }
             }
-            // With selected source texts, the narrated words must be those exact files.
+            // With selected source texts, the narrated words must be exactly those files,
+            // each narrated once and none left out.
+            let selected = sources
+                .iter()
+                .map(std::fs::canonicalize)
+                .collect::<std::io::Result<BTreeSet<_>>>()?;
+            let unique: BTreeSet<_> = narrated.iter().cloned().collect();
             if job.media == Media::Audiobook
-                && !sources.is_empty()
-                && narrated.iter().any(|p| {
-                    !sources
-                        .iter()
-                        .any(|s| std::fs::canonicalize(s).ok().as_ref() == Some(p))
-                })
+                && !selected.is_empty()
+                && (unique != selected || unique.len() != narrated.len())
             {
                 return Err(Error::input(
                     "Planned audiobook must narrate the selected _inputs/sources files exactly; the planner may not author book text",
@@ -304,23 +306,18 @@ pub fn prepare_sources(
         if words.trim().is_empty() {
             return Err(Error::input("Planning source is empty"));
         }
-        let relative = PathBuf::from("_inputs/sources").join(format!(
-            "{i}-{}",
+        // Forward slashes on every platform: the planner writes this path into portable YAML.
+        let relative = format!(
+            "_inputs/sources/{i}-{}",
             source.file_name().unwrap().to_string_lossy()
-        ));
+        );
         atomic(&directory.join(&relative), words.as_bytes(), false)?;
-        let headings: Vec<_> = words
-            .lines()
-            .filter(|l| l.starts_with('#'))
-            .take(200)
-            .map(str::to_owned)
-            .collect();
+        // Metadata only: no source words (headings included) reach the planner.
         items.push(serde_json::json!({
             "kind": "source",
             "path": relative,
             "sha256": crate::storage::hash(words.as_bytes()),
             "chars": words.chars().count(),
-            "headings": headings,
         }));
     }
     let inventory = serde_json::json!(items);

@@ -200,6 +200,11 @@ fn audiobook_contract_rejections_happen_before_any_request() {
         ..Default::default()
     });
     check(&bitrate, "mp3_bitrate_kbps");
+    // Rates the encoder cannot produce are rejected before any request.
+    for kbps in [56, 144] {
+        bitrate.audiobook.as_mut().unwrap().mp3_bitrate_kbps = Some(kbps);
+        check(&bitrate, "mp3_bitrate_kbps");
+    }
     let mut speech = base.clone();
     speech.media = Media::Speech;
     check(&speech, "only valid for audiobook");
@@ -852,6 +857,7 @@ fn planned_audiobooks_must_narrate_the_selected_source_exactly() {
         .unwrap();
         assert_eq!(inventory[0]["path"], "_inputs/sources/0-book.md");
         assert!(inventory[0].get("content").is_none());
+        assert!(inventory[0].get("headings").is_none());
         let mut files = vec![serde_json::json!({"path": "job.yaml", "content": job})];
         if !extra.is_empty() {
             files.push(serde_json::json!({"path": "chapter.md", "content": extra}));
@@ -869,5 +875,20 @@ fn planned_audiobooks_must_narrate_the_selected_source_exactly() {
         "A paraphrase.",
     )
     .unwrap_err();
+    assert!(error.to_string().contains("exactly"), "{error}");
+    // Every selected source must be narrated: leaving one out is rejected.
+    let second = t.path().join("two.md");
+    fs::write(&second, "Second part.").unwrap();
+    let stage = tempfile::tempdir().unwrap();
+    framechord::planning::prepare_sources(
+        stage.path(),
+        serde_json::json!([]),
+        &[source.clone(), second],
+    )
+    .unwrap();
+    let partial = serde_json::json!({"files": [{"path": "job.yaml", "content":
+        "schema_version: 2\nid: book\nmedia: audiobook\nchapters:\n  - id: one\n    text_file: _inputs/sources/0-book.md\n"}]})
+    .to_string();
+    let error = framechord::planning::stage(&partial, "job", stage.path(), &config()).unwrap_err();
     assert!(error.to_string().contains("exactly"), "{error}");
 }

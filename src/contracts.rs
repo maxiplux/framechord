@@ -457,7 +457,8 @@ pub struct AudiobookOptions {
     pub output_mode: OutputMode,
     #[serde(default)]
     pub format: AudioFormat,
-    /// Constant MP3 bitrate; 32–160 kbps at the 24 kHz mono working rate (default 64).
+    /// Constant MP3 bitrate at the 24 kHz mono working rate: 8, 16, 24, 32, 40, 48, 64, 80,
+    /// 96, 112, 128 or 160 kbps (default 64).
     pub mp3_bitrate_kbps: Option<u16>,
     /// Speak each chapter title before its text.
     #[serde(default)]

@@ -104,7 +104,7 @@
           ]
         },
         "mp3_bitrate_kbps": {
-          "description": "Constant MP3 bitrate; 32–160 kbps at the 24 kHz mono working rate (default 64).",
+          "description": "Constant MP3 bitrate at the 24 kHz mono working rate: 8, 16, 24, 32, 40, 48, 64, 80,\n96, 112, 128 or 160 kbps (default 64).",
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0,

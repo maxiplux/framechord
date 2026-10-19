@@ -24,7 +24,9 @@ use std::{collections::BTreeSet, path::Path};
 pub const DEFAULT_CHUNK_CHARS: usize = 4000;
 pub const DEFAULT_MP3_KBPS: u16 = 64;
 /// MPEG-2 Layer III bitrates valid at the 24 kHz working rate.
-pub const MP3_KBPS: [u16; 14] = [8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+/// Only rates the bundled encoder exposes are accepted, so a job cannot pass
+/// validation and then fail at assembly after paid requests.
+pub const MP3_KBPS: [u16; 12] = [8, 16, 24, 32, 40, 48, 64, 80, 96, 112, 128, 160];
 /// Reservation estimate shared with the engine budget.
 pub const CHARS_PER_SECOND: u32 = 12;
 

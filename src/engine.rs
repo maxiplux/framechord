@@ -836,13 +836,11 @@ pub async fn work(
             .map(|j| (j.input.id.clone(), j.state))
             .collect();
         let mut launch = vec![];
-        let mut running = run
-            .jobs
-            .iter()
-            .filter(|j| j.state == State::Running)
-            .count();
+        // Local assemblies (jobs with turns) make no provider call and take no slot.
+        let calling = |j: &&JobRecord| j.state == State::Running && j.input.turns.is_empty();
+        let mut running = run.jobs.iter().filter(calling).count();
         let mut provider_running: BTreeMap<Provider, usize> = BTreeMap::new();
-        for j in run.jobs.iter().filter(|j| j.state == State::Running) {
+        for j in run.jobs.iter().filter(calling) {
             *provider_running
                 .entry(j.input.selection.provider)
                 .or_default() += 1;
@@ -898,7 +896,6 @@ pub async fn work(
                     });
                     (i, job)
                 });
-                running += 1;
                 continue;
             }
             if run.jobs[i].input.media == Media::Podcast
