@@ -110,26 +110,40 @@ impl Terminal {
     }
     fn send(&mut self, keys: &str) {
         // Let the prompt renderer finish switching terminal input mode before typing.
-        std::thread::sleep(Duration::from_millis(50));
+        // ConPTY on a busy Windows runner can drop keys typed sooner; a lost "Save" then
+        // falls through to the menu default and the process never exits.
+        std::thread::sleep(Duration::from_millis(if cfg!(windows) { 200 } else { 50 }));
         let mut writer = self.writer.lock().unwrap();
         writer.write_all(keys.as_bytes()).unwrap();
         writer.flush().unwrap();
     }
-    fn success(&mut self) {
-        let deadline = Instant::now() + Duration::from_secs(15);
+    /// Waits for the process to exit. Returns as soon as it does; the generous bound only
+    /// matters on a hang, and then the assertion shows what the terminal last displayed.
+    fn exit_status(&mut self) -> portable_pty::ExitStatus {
+        let deadline = Instant::now() + Duration::from_secs(45);
         loop {
             if let Some(status) = self.child.try_wait().unwrap() {
-                assert!(
-                    status.success(),
-                    "terminal exit {}: {}",
-                    status.exit_code(),
-                    self.output
-                );
-                return;
+                return status;
             }
-            assert!(Instant::now() < deadline);
+            while let Ok(bytes) = self.receiver.try_recv() {
+                self.output.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            assert!(
+                Instant::now() < deadline,
+                "terminal did not exit; output: {}",
+                console::strip_ansi_codes(&self.output)
+            );
             std::thread::sleep(Duration::from_millis(25));
         }
+    }
+    fn success(&mut self) {
+        let status = self.exit_status();
+        assert!(
+            status.success(),
+            "terminal exit {}: {}",
+            status.exit_code(),
+            self.output
+        );
     }
 }
 #[test]
@@ -272,15 +286,7 @@ fn escape_returns_to_checklist_and_discard_writes_nothing() {
     p.send("Discard changes\r");
     p.wait("Discard all unsaved changes?");
     p.send("Discard and exit\r");
-    let deadline = Instant::now() + Duration::from_secs(15);
-    loop {
-        if let Some(status) = p.child.try_wait().unwrap() {
-            assert_eq!(status.exit_code(), 130);
-            break;
-        }
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(25));
-    }
+    assert_eq!(p.exit_status().exit_code(), 130);
     assert!(!root.exists());
 }
 #[test]
